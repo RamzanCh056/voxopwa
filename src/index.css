@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Browser chrome / address bar color */
+html { background-color: #1E1B4B; }
+
+body {
+  margin: 0;
+  background-color: #F0F2F7;
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease;
+}
+
+#root { min-height: 100vh; width: 100%; }
+
+/* Hide scrollbars */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Dark mode — minimal overrides for elements that use inline styles */
+html.dark { color-scheme: dark; }
+html.dark body { background-color: #0F0C29; }
+html.dark #root { background-color: #0F0C29; }
+
+/* ══════════════════════════════════════════════
+   Premium animation keyframes
+   ══════════════════════════════════════════════ */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.90); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-9px); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1);    opacity: 0.5; }
+  100% { transform: scale(1.7);  opacity: 0;   }
+}
+@keyframes gradient-pan {
+  0%, 100% { background-position: 0%   50%; }
+  50%       { background-position: 100% 50%; }
+}
+@keyframes shimmer-sweep {
+  0%   { transform: translateX(-100%) skewX(-12deg); }
+  100% { transform: translateX(300%)  skewX(-12deg); }
+}
+@keyframes glow-breathe {
+  0%, 100% { box-shadow: 0 6px 24px rgba(108,99,255,0.40); }
+  50%       { box-shadow: 0 6px 48px rgba(108,99,255,0.72), 0 0 80px rgba(108,99,255,0.18); }
+}
+@keyframes wave-bar {
+  from { transform: scaleY(1);   }
+  to   { transform: scaleY(1.85);}
+}
+@keyframes orb-drift-a {
+  0%, 100% { transform: translate(0px,   0px)   scale(1);    }
+  35%       { transform: translate(22px, -28px)  scale(1.08); }
+  70%       { transform: translate(-16px, 14px)  scale(0.94); }
+}
+@keyframes orb-drift-b {
+  0%, 100% { transform: translate(0px,   0px)   scale(1);    }
+  35%       { transform: translate(-20px,-12px)  scale(0.93); }
+  70%       { transform: translate(18px,  22px)  scale(1.06); }
+}
+@keyframes slide-fade-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0);     }
+}
+@keyframes bounce-in {
+  0%   { transform: scale(0.6);  opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
