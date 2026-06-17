@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAnalysis } from '../hooks/useAnalysis'
 import { useAuth } from '../context/AuthContext'
 import { saveAnalysis } from '../services/firestoreService'
-import { useUpgradeModal } from '../context/UpgradeModalContext'
 
 const STEPS = [
   { label: 'Transcribing audio', detail: 'Converting speech to text…' },
@@ -46,7 +45,6 @@ export default function AnalysisProgressPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { user } = useAuth()
-  const { openUpgradeModal } = useUpgradeModal()
   const { progress, stepIndex, currentStep, error, isComplete, result, insufficientMinutes, runAnalysis } = useAnalysis()
 
   useEffect(() => {
@@ -63,21 +61,30 @@ export default function AnalysisProgressPage() {
     }
   }, [isComplete, result, user, id, navigate])
 
-  // Open the upgrade modal when minutes are exhausted
-  useEffect(() => {
-    if (insufficientMinutes) openUpgradeModal()
-  }, [insufficientMinutes, openUpgradeModal])
-
   if (insufficientMinutes) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-5 bg-[#F0F2F7] dark:bg-[#0F0C29]">
         <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-6 shadow-sm text-center max-w-sm w-full">
-          <p className="font-bold text-gray-800 dark:text-white mb-1">No Minutes Left</p>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'rgba(108,99,255,0.12)' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="2"
+              strokeLinecap="round" className="w-7 h-7">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <p className="font-bold text-gray-800 dark:text-white mb-2">Out of Minutes</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-            Upgrade to Pro for unlimited analyses or top up with more minutes.
+            You've used all your analysis minutes. Subscribe or top up to continue.
           </p>
+          <button onClick={() => navigate('/billing')}
+            className="w-full py-3 rounded-xl text-white font-semibold text-sm mb-2"
+            style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
+            View Plans
+          </button>
           <button onClick={() => navigate('/')}
-            className="w-full py-3 rounded-xl text-gray-500 dark:text-gray-400 font-semibold text-sm border border-gray-200 dark:border-[#2E2B5B]">
+            className="w-full py-3 rounded-xl text-gray-500 dark:text-gray-400 font-semibold text-sm">
             Go Back
           </button>
         </div>

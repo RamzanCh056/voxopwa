@@ -1,9 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
 import { useEffect, useState } from 'react'
 import { getIdTokenResult } from 'firebase/auth'
-import { useUpgradeModal } from '../context/UpgradeModalContext'
 import { doc, onSnapshot } from 'firebase/firestore'
+import { useAuth } from '../context/AuthContext'
 import { db } from '../firebase/config'
 
 const NAV = [
@@ -63,31 +62,52 @@ const NAV = [
   },
 ]
 
+function navCls(isActive) {
+  return `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+    isActive
+      ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+      : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-300'
+  }`
+}
+
 export default function Sidebar() {
   const { user } = useAuth()
-  const { openUpgradeModal } = useUpgradeModal()
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [isUnlimited, setIsUnlimited] = useState(false)
+  const [isAdmin,  setIsAdmin]  = useState(false)
+  const [billing,  setBilling]  = useState(null)  // { minutesUsed, minutesIncluded, status }
 
   useEffect(() => {
     if (!user) return
     getIdTokenResult(user).then(r => setIsAdmin(!!r.claims.admin))
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
-      const d = snap.data() || {}
-      setIsUnlimited(d.unlimited === true && (d.subscriptionStatus === 'active' || d.planType === 'lifetime'))
+      if (snap.exists()) {
+        const d = snap.data()
+        setBilling({
+          minutesUsed:     d.minutesUsed     || 0,
+          minutesIncluded: d.minutesIncluded || 0,
+          status:          d.subscriptionStatus || null,
+        })
+      }
     })
     return unsub
   }, [user])
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'User'
-  const email = user?.email || ''
-  const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  const email       = user?.email || ''
+  const initials    = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+
+  const minutesLeft = billing
+    ? Math.max(0, billing.minutesIncluded - billing.minutesUsed)
+    : null
+  const pct = billing?.minutesIncluded > 0
+    ? Math.min(100, Math.round((billing.minutesUsed / billing.minutesIncluded) * 100))
+    : 0
+  const lowMinutes = minutesLeft !== null && minutesLeft < 30
 
   return (
     <aside className="hidden md:flex flex-col fixed left-0 top-0 bottom-0 w-60 bg-white dark:bg-[#1A1740] border-r border-gray-200 dark:border-[#2E2B5B] z-30 p-4 transition-colors duration-300">
 
       {/* Logo */}
-      <div className="flex items-center gap-2.5 mb-7 px-1 pt-2">
+      <div className="flex items-center gap-2.5 mb-6 px-1 pt-2">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
           <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
@@ -101,30 +121,12 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Go Pro button — only when not already unlimited */}
-      {!isUnlimited && (
-        <button
-          onClick={openUpgradeModal}
-          className="mb-4 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all"
-          style={{ background: 'linear-gradient(135deg,#2563EB,#06B6D4)', color: 'white' }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
-            strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-          Upgrade to Pro
-        </button>
-      )}
-
       {/* Nav */}
       <nav className="flex-1 flex flex-col gap-1">
         {NAV.map(({ to, end, label, icon }) => (
           <NavLink key={to} to={to} end={end}>
             {({ isActive }) => (
-              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-300'
-              }`}>
+              <div className={navCls(isActive)}>
                 {icon(isActive)}
                 {label}
               </div>
@@ -135,30 +137,27 @@ export default function Sidebar() {
         {/* Billing */}
         <NavLink to="/billing" end={false}>
           {({ isActive }) => (
-            <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-              isActive
-                ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-300'
-            }`}>
+            <div className={navCls(isActive)}>
               <svg viewBox="0 0 24 24" fill="none" stroke={isActive ? '#6C63FF' : 'currentColor'}
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0">
                 <rect x="2" y="5" width="20" height="14" rx="2"/>
                 <line x1="2" y1="10" x2="22" y2="10"/>
               </svg>
               Billing
+              {lowMinutes && (
+                <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                  Low
+                </span>
+              )}
             </div>
           )}
         </NavLink>
 
-        {/* Admin — only shown when user has admin custom claim */}
+        {/* Admin — only when admin claim */}
         {isAdmin && (
           <NavLink to="/admin" end={false}>
             {({ isActive }) => (
-              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-300'
-              }`}>
+              <div className={navCls(isActive)}>
                 <svg viewBox="0 0 24 24" fill="none" stroke={isActive ? '#6C63FF' : 'currentColor'}
                   strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -170,8 +169,40 @@ export default function Sidebar() {
         )}
       </nav>
 
+      {/* Minutes pill */}
+      {billing && billing.minutesIncluded > 0 && (
+        <NavLink to="/billing" className="mt-3 block">
+          <div className={`rounded-xl px-3 py-2.5 transition-colors ${
+            lowMinutes
+              ? 'bg-red-50 dark:bg-red-900/20'
+              : 'bg-gray-50 dark:bg-[#2E2B5B]'
+          }`}>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Minutes left</span>
+              <span className="text-xs font-bold" style={{ color: lowMinutes ? '#ef4444' : '#6C63FF' }}>
+                {minutesLeft?.toLocaleString()}
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-gray-200 dark:bg-[#1A1740] rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all"
+                style={{ width: `${pct}%`, background: pct > 80 ? '#ef4444' : '#6C63FF' }} />
+            </div>
+          </div>
+        </NavLink>
+      )}
+
+      {/* No plan state */}
+      {billing && billing.minutesIncluded === 0 && (
+        <NavLink to="/billing"
+          className="mt-3 block px-3 py-2.5 rounded-xl bg-purple-50 dark:bg-purple-900/20 text-center">
+          <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">
+            No active plan → Subscribe
+          </span>
+        </NavLink>
+      )}
+
       {/* User */}
-      <div className="pt-4 border-t border-gray-100 dark:border-[#2E2B5B]">
+      <div className="pt-4 border-t border-gray-100 dark:border-[#2E2B5B] mt-3">
         <div className="flex items-center gap-2.5 px-1">
           <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
             style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
