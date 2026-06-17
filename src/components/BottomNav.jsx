@@ -63,7 +63,7 @@ export default function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
       {/* Glass blur backdrop */}
-      <div className="mx-auto relative overflow-hidden"
+      <div className="mx-auto relative"
         style={{
           maxWidth: 430,
           background: darkMode
