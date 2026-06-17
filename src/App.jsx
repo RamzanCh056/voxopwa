@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import AppLayout from './components/AppLayout'
+import { UpgradeModalProvider } from './context/UpgradeModalContext'
 
 import HomePage from './pages/HomePage'
 import RecordingPage from './pages/RecordingPage'
@@ -24,6 +25,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 export default function App() {
   return (
     <BrowserRouter>
+      <UpgradeModalProvider>
       <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
@@ -49,6 +51,7 @@ export default function App() {
             <Route path="/admin" element={<AdminDashboardPage />} />
           </Route>
       </Routes>
+      </UpgradeModalProvider>
     </BrowserRouter>
   )
 }

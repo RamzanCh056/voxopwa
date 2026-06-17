@@ -1,7 +1,7 @@
 const functions = require('firebase-functions/v1')
 const admin = require('firebase-admin')
 const Stripe = require('stripe')
-const { PLANS, TOPUP } = require('./plans')
+const { FREE_PLANS, PRO_PLANS, TOPUP } = require('./plans')
 
 admin.initializeApp()
 const db = admin.firestore()
@@ -34,16 +34,18 @@ exports.createCheckoutSession = functions
     const uid = context.auth.uid
     const email = context.auth.token.email
 
-    const isTopup = planId === 'topup_300'
-    const plan = isTopup ? null : PLANS[planId]
-    if (!isTopup && !plan) {
+    const isTopup  = planId === 'topup_300'
+    const freePlan = !isTopup ? FREE_PLANS[planId] : null
+    const proPlan  = !isTopup ? PRO_PLANS[planId]  : null
+
+    if (!isTopup && !freePlan && !proPlan) {
       throw new functions.https.HttpsError('invalid-argument', `Unknown planId: ${planId}`)
     }
 
     const stripe = getStripe()
 
     // Get or create Stripe customer
-    const userRef = db.collection('users').doc(uid)
+    const userRef  = db.collection('users').doc(uid)
     const userSnap = await userRef.get()
     const userData = userSnap.data() || {}
 
@@ -54,38 +56,56 @@ exports.createCheckoutSession = functions
         metadata: { firebaseUid: uid },
       })
       customerId = customer.id
-      await userRef.set({ stripeCustomerId: customerId, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true })
+      await userRef.set(
+        { stripeCustomerId: customerId, createdAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
+      )
     }
 
-    const appUrl = process.env.APP_URL || 'https://voxopwa-production.up.railway.app'
+    const appUrl   = process.env.APP_URL || 'https://voxopwa-production.up.railway.app'
+    const priceId  = isTopup ? TOPUP.priceId : (proPlan ? proPlan.priceId : freePlan.priceId)
+    const mode     = isTopup ? 'payment'     : (proPlan ? proPlan.mode    : 'subscription')
 
-    let session
-    if (isTopup) {
-      session = await stripe.checkout.sessions.create({
-        mode: 'payment',
-        customer: customerId,
-        client_reference_id: uid,
-        line_items: [{ price: TOPUP.priceId, quantity: 1 }],
-        success_url: `${appUrl}/billing?success=true`,
-        cancel_url: `${appUrl}/billing?canceled=true`,
-        metadata: { planId: 'topup_300', firebaseUid: uid },
-      })
-    } else {
-      session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
-        customer: customerId,
-        client_reference_id: uid,
-        line_items: [{ price: plan.priceId, quantity: 1 }],
-        success_url: `${appUrl}/billing?success=true`,
-        cancel_url: `${appUrl}/billing?canceled=true`,
-        metadata: { planId, firebaseUid: uid },
-      })
-    }
+    const session = await stripe.checkout.sessions.create({
+      mode,
+      customer: customerId,
+      client_reference_id: uid,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${appUrl}/billing?success=true`,
+      cancel_url:  `${appUrl}/billing?canceled=true`,
+      metadata:    { planId, firebaseUid: uid },
+    })
 
     return { url: session.url }
   })
 
-// ─── 2. stripeWebhook ────────────────────────────────────────────────────────
+// ─── 2. createPortalSession ──────────────────────────────────────────────────
+
+exports.createPortalSession = functions
+  .runWith({ secrets: ['STRIPE_SECRET_KEY'] })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in')
+    }
+    const uid      = context.auth.uid
+    const userSnap = await db.collection('users').doc(uid).get()
+    const userData = userSnap.data() || {}
+
+    if (!userData.stripeCustomerId) {
+      throw new functions.https.HttpsError('not-found', 'No billing account found')
+    }
+
+    const appUrl  = process.env.APP_URL || 'https://voxopwa-production.up.railway.app'
+    const stripe  = getStripe()
+    const session = await stripe.billingPortal.sessions.create({
+      customer:   userData.stripeCustomerId,
+      return_url: `${appUrl}/billing`,
+    })
+
+    return { url: session.url }
+  })
+
+// ─── 3. stripeWebhook ────────────────────────────────────────────────────────
 
 exports.stripeWebhook = functions
   .runWith({ secrets: ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'] })
@@ -109,46 +129,66 @@ exports.stripeWebhook = functions
 
         case 'checkout.session.completed': {
           const session = event.data.object
-          const uid = session.client_reference_id || session.metadata?.firebaseUid
+          const uid     = session.client_reference_id || session.metadata?.firebaseUid
           if (!uid) break
 
+          const planId  = session.metadata?.planId
           const userRef = db.collection('users').doc(uid)
+          const proPlan = PRO_PLANS[planId]
 
-          if (session.mode === 'payment') {
-            // Top-up
-            await userRef.set({
-              minutesIncluded: admin.firestore.FieldValue.increment(TOPUP.minutes),
-            }, { merge: true })
+          if (proPlan) {
+            // ── Unlimited Pro purchase ──────────────────────────────────
+            const update = { planId, subscriptionStatus: 'active', unlimited: true }
+
+            if (proPlan.mode === 'payment') {
+              // Lifetime — never expires
+              update.planType = 'lifetime'
+            } else {
+              // Pro subscription — record current period
+              const subscription = await getStripe().subscriptions.retrieve(session.subscription)
+              update.subscriptionId     = session.subscription
+              update.currentPeriodStart = admin.firestore.Timestamp.fromMillis(subscription.current_period_start * 1000)
+              update.currentPeriodEnd   = admin.firestore.Timestamp.fromMillis(subscription.current_period_end   * 1000)
+            }
+
+            await userRef.set(update, { merge: true })
             await db.collection('usage_logs').doc(uid).collection('entries').add({
-              type: 'topup',
-              minutesAdded: TOPUP.minutes,
+              type:      'pro_upgrade',
+              planId,
               timestamp: admin.firestore.FieldValue.serverTimestamp(),
             })
-          } else if (session.mode === 'subscription') {
-            // New subscription
-            const planId = session.metadata?.planId
-            const plan = PLANS[planId]
-            if (!plan) break
 
-            const subId = session.subscription
-            const stripe = getStripe()
-            const subscription = await stripe.subscriptions.retrieve(subId)
+          } else if (session.mode === 'payment') {
+            // ── Top-up for metered user ─────────────────────────────────
+            await userRef.set({ minutesIncluded: admin.firestore.FieldValue.increment(TOPUP.minutes) }, { merge: true })
+            await db.collection('usage_logs').doc(uid).collection('entries').add({
+              type:         'topup',
+              minutesAdded: TOPUP.minutes,
+              timestamp:    admin.firestore.FieldValue.serverTimestamp(),
+            })
+
+          } else {
+            // ── New metered subscription ───────────────────────────────
+            const freePlan = FREE_PLANS[planId]
+            if (!freePlan) break
+            const subscription = await getStripe().subscriptions.retrieve(session.subscription)
 
             await userRef.set({
-              subscriptionId: subId,
+              subscriptionId:     session.subscription,
               planId,
               subscriptionStatus: 'active',
-              minutesIncluded: plan.minutesIncluded,
-              minutesUsed: 0,
+              unlimited:          false,
+              minutesIncluded:    freePlan.minutesIncluded,
+              minutesUsed:        0,
               currentPeriodStart: admin.firestore.Timestamp.fromMillis(subscription.current_period_start * 1000),
-              currentPeriodEnd: admin.firestore.Timestamp.fromMillis(subscription.current_period_end * 1000),
+              currentPeriodEnd:   admin.firestore.Timestamp.fromMillis(subscription.current_period_end   * 1000),
             }, { merge: true })
 
             await db.collection('usage_logs').doc(uid).collection('entries').add({
-              type: 'subscription_start',
+              type:            'subscription_start',
               planId,
-              minutesIncluded: plan.minutesIncluded,
-              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              minutesIncluded: freePlan.minutesIncluded,
+              timestamp:       admin.firestore.FieldValue.serverTimestamp(),
             })
           }
           break
@@ -156,55 +196,64 @@ exports.stripeWebhook = functions
 
         case 'invoice.payment_succeeded': {
           const invoice = event.data.object
-          // Skip the first payment — handled by checkout.session.completed
           if (invoice.billing_reason === 'subscription_create') break
 
-          const customerId = invoice.customer
-          const user = await getUserByCustomerId(customerId)
+          const user = await getUserByCustomerId(invoice.customer)
           if (!user) break
 
-          const plan = PLANS[user.planId]
-          if (!plan) break
-
-          const rollover = Math.max(
-            Math.min((user.minutesIncluded || 0) - (user.minutesUsed || 0), plan.minutesIncluded),
-            0
-          )
-          const newMinutesIncluded = plan.minutesIncluded + rollover
-
-          const stripe = getStripe()
-          const subscription = await stripe.subscriptions.retrieve(invoice.subscription)
-
-          await db.collection('users').doc(user.id).set({
-            minutesIncluded: newMinutesIncluded,
-            minutesUsed: 0,
+          const subscription = await getStripe().subscriptions.retrieve(invoice.subscription)
+          const periodUpdate = {
             subscriptionStatus: 'active',
             currentPeriodStart: admin.firestore.Timestamp.fromMillis(subscription.current_period_start * 1000),
-            currentPeriodEnd: admin.firestore.Timestamp.fromMillis(subscription.current_period_end * 1000),
-          }, { merge: true })
+            currentPeriodEnd:   admin.firestore.Timestamp.fromMillis(subscription.current_period_end   * 1000),
+          }
 
-          await db.collection('usage_logs').doc(user.id).collection('entries').add({
-            type: 'reset',
-            planId: user.planId,
-            minutesIncluded: plan.minutesIncluded,
-            rolloverMinutes: rollover,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          })
+          if (user.unlimited) {
+            // Pro renewal — just update period, no minute rollover
+            await db.collection('users').doc(user.id).set(periodUpdate, { merge: true })
+            await db.collection('usage_logs').doc(user.id).collection('entries').add({
+              type:      'pro_renewal',
+              planId:    user.planId,
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            })
+          } else {
+            // Metered renewal — rollover unused minutes
+            const freePlan = FREE_PLANS[user.planId]
+            if (!freePlan) break
+            const rollover = Math.max(
+              Math.min((user.minutesIncluded || 0) - (user.minutesUsed || 0), freePlan.minutesIncluded),
+              0
+            )
+            await db.collection('users').doc(user.id).set({
+              ...periodUpdate,
+              minutesIncluded: freePlan.minutesIncluded + rollover,
+              minutesUsed:     0,
+            }, { merge: true })
+            await db.collection('usage_logs').doc(user.id).collection('entries').add({
+              type:            'reset',
+              planId:          user.planId,
+              minutesIncluded: freePlan.minutesIncluded,
+              rolloverMinutes: rollover,
+              timestamp:       admin.firestore.FieldValue.serverTimestamp(),
+            })
+          }
           break
         }
 
         case 'customer.subscription.deleted': {
           const subscription = event.data.object
-          const customerId = subscription.customer
-          const user = await getUserByCustomerId(customerId)
+          const user = await getUserByCustomerId(subscription.customer)
           if (!user) break
-          await db.collection('users').doc(user.id).set({ subscriptionStatus: 'canceled' }, { merge: true })
+          await db.collection('users').doc(user.id).set({
+            subscriptionStatus: 'canceled',
+            unlimited:          false,
+          }, { merge: true })
           break
         }
 
         case 'invoice.payment_failed': {
           const invoice = event.data.object
-          const user = await getUserByCustomerId(invoice.customer)
+          const user    = await getUserByCustomerId(invoice.customer)
           if (!user) break
           await db.collection('users').doc(user.id).set({ subscriptionStatus: 'past_due' }, { merge: true })
           break
@@ -218,7 +267,7 @@ exports.stripeWebhook = functions
     res.json({ received: true })
   })
 
-// ─── 3. consumeMinutes ───────────────────────────────────────────────────────
+// ─── 4. consumeMinutes ───────────────────────────────────────────────────────
 
 exports.consumeMinutes = functions
   .https.onCall(async (data, context) => {
@@ -226,15 +275,30 @@ exports.consumeMinutes = functions
       throw new functions.https.HttpsError('unauthenticated', 'Must be signed in')
     }
 
-    const uid = context.auth.uid
-    const estimatedMinutes = Math.ceil(data.estimatedMinutes || 1)
-    const userRef = db.collection('users').doc(uid)
+    const uid              = context.auth.uid
+    const estimatedMinutes = Math.max(1, Math.ceil(data.estimatedMinutes || 1))
+    const userRef          = db.collection('users').doc(uid)
 
+    // Fast path: unlimited Pro users — log analytics but never block
+    const userSnap = await userRef.get()
+    const userData = userSnap.data() || {}
+
+    if (userData.unlimited === true && userData.subscriptionStatus === 'active') {
+      await db.collection('usage_logs').doc(uid).collection('entries').add({
+        type:          'analysis',
+        minutesUsed:   estimatedMinutes,
+        unlimited:     true,
+        timestamp:     admin.firestore.FieldValue.serverTimestamp(),
+      })
+      return { success: true, unlimited: true }
+    }
+
+    // Metered path: atomic check + deduct
     await db.runTransaction(async (tx) => {
-      const snap = await tx.get(userRef)
-      const userData = snap.data() || {}
-      const included = userData.minutesIncluded || 0
-      const used = userData.minutesUsed || 0
+      const snap     = await tx.get(userRef)
+      const d        = snap.data() || {}
+      const included = d.minutesIncluded || 0
+      const used     = d.minutesUsed     || 0
       const remaining = included - used
 
       if (remaining < estimatedMinutes) {
@@ -249,15 +313,15 @@ exports.consumeMinutes = functions
     })
 
     await db.collection('usage_logs').doc(uid).collection('entries').add({
-      type: 'analysis',
+      type:        'analysis',
       minutesUsed: estimatedMinutes,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp:   admin.firestore.FieldValue.serverTimestamp(),
     })
 
     return { success: true, minutesConsumed: estimatedMinutes }
   })
 
-// ─── 4. getAdminUsageStats ───────────────────────────────────────────────────
+// ─── 5. getAdminUsageStats ───────────────────────────────────────────────────
 
 exports.getAdminUsageStats = functions
   .https.onCall(async (data, context) => {
@@ -269,23 +333,25 @@ exports.getAdminUsageStats = functions
     }
 
     const usersSnap = await db.collection('users').get()
-    const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    const users     = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }))
 
-    const planCounts = { monthly: 0, quarterly: 0, yearly: 0, none: 0 }
-    let totalActive = 0
+    const planCounts     = { pro_monthly: 0, pro_yearly: 0, pro_lifetime: 0, monthly: 0, quarterly: 0, yearly: 0, none: 0 }
+    let totalActive      = 0
+    let totalUnlimited   = 0
     let totalMinutesUsed = 0
 
     for (const u of users) {
-      if (u.subscriptionStatus === 'active') {
+      if (u.subscriptionStatus === 'active' || u.planType === 'lifetime') {
         totalActive++
+        if (u.unlimited) totalUnlimited++
         planCounts[u.planId] = (planCounts[u.planId] || 0) + 1
       } else {
-        planCounts.none++
+        planCounts.none = (planCounts.none || 0) + 1
       }
       totalMinutesUsed += u.minutesUsed || 0
     }
 
-    const planPrices = { monthly: 9.99, quarterly: 24.99, yearly: 79.99 }
+    const planPrices    = { pro_monthly: 10.99, pro_yearly: 59 / 12, pro_lifetime: 0, monthly: 9.99, quarterly: 24.99 / 3, yearly: 79.99 / 12 }
     const estimatedRevenue = Object.entries(planCounts)
       .filter(([k]) => k !== 'none')
       .reduce((sum, [planId, count]) => sum + (planPrices[planId] || 0) * count, 0)
@@ -294,17 +360,19 @@ exports.getAdminUsageStats = functions
       .sort((a, b) => (b.minutesUsed || 0) - (a.minutesUsed || 0))
       .slice(0, 50)
       .map(u => ({
-        id: u.id,
-        planId: u.planId || 'none',
-        subscriptionStatus: u.subscriptionStatus || 'none',
-        minutesUsed: u.minutesUsed || 0,
-        minutesIncluded: u.minutesIncluded || 0,
-        currentPeriodEnd: u.currentPeriodEnd?.toMillis?.() || null,
+        id:                 u.id,
+        planId:             u.planId || 'none',
+        subscriptionStatus: u.subscriptionStatus || (u.planType === 'lifetime' ? 'lifetime' : 'none'),
+        unlimited:          u.unlimited || false,
+        minutesUsed:        u.minutesUsed || 0,
+        minutesIncluded:    u.minutesIncluded || 0,
+        currentPeriodEnd:   u.currentPeriodEnd?.toMillis?.() || null,
       }))
 
     return {
-      totalUsers: users.length,
+      totalUsers:              users.length,
       totalActive,
+      totalUnlimited,
       totalMinutesUsed,
       planCounts,
       estimatedMonthlyRevenue: Math.round(estimatedRevenue * 100) / 100,

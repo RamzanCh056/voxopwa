@@ -2,6 +2,9 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useEffect, useState } from 'react'
 import { getIdTokenResult } from 'firebase/auth'
+import { useUpgradeModal } from '../context/UpgradeModalContext'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '../firebase/config'
 
 const NAV = [
   {
@@ -62,11 +65,18 @@ const NAV = [
 
 export default function Sidebar() {
   const { user } = useAuth()
+  const { openUpgradeModal } = useUpgradeModal()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isUnlimited, setIsUnlimited] = useState(false)
 
   useEffect(() => {
     if (!user) return
     getIdTokenResult(user).then(r => setIsAdmin(!!r.claims.admin))
+    const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
+      const d = snap.data() || {}
+      setIsUnlimited(d.unlimited === true && (d.subscriptionStatus === 'active' || d.planType === 'lifetime'))
+    })
+    return unsub
   }, [user])
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'User'
@@ -90,6 +100,20 @@ export default function Sidebar() {
           <p className="text-[11px] leading-tight text-gray-400 dark:text-gray-500">AI Voice Analysis</p>
         </div>
       </div>
+
+      {/* Go Pro button — only when not already unlimited */}
+      {!isUnlimited && (
+        <button
+          onClick={openUpgradeModal}
+          className="mb-4 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all"
+          style={{ background: 'linear-gradient(135deg,#2563EB,#06B6D4)', color: 'white' }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 flex-shrink-0">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+          Upgrade to Pro
+        </button>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 flex flex-col gap-1">
