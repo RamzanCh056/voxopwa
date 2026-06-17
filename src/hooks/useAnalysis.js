@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { getRecording, updateRecording } from '../services/storageService'
 import { analyzeRecording } from '../services/analysisService'
+import { checkMinutesBeforeAnalysis } from '../services/billingService'
 
 // Formats that Web Speech API cannot play back for transcription
 const SPEECH_API_UNSUPPORTED_EXTS = new Set(['opus', 'ogg', 'amr', '3gp', 'flac', 'wma'])
@@ -35,6 +36,7 @@ export function useAnalysis() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [isComplete, setIsComplete] = useState(false)
+  const [insufficientMinutes, setInsufficientMinutes] = useState(false)
 
   const runAnalysis = useCallback(async (recordingId) => {
     try {
@@ -43,9 +45,19 @@ export function useAnalysis() {
       setCurrentStep('Transcribing audio')
       setError(null)
       setIsComplete(false)
+      setInsufficientMinutes(false)
 
       const recording = await getRecording(recordingId)
       if (!recording) throw new Error('Recording not found in local storage. Please re-import the file.')
+
+      // Gate: reserve minutes before calling OpenAI
+      const durationSec = recording.duration || 60
+      const estimatedMinutes = Math.max(1, Math.ceil(durationSec / 60))
+      const minutesCheck = await checkMinutesBeforeAnalysis(estimatedMinutes)
+      if (!minutesCheck.ok) {
+        setInsufficientMinutes(true)
+        return
+      }
 
       const blob = recording.audioBlob
       const filename = recording.filename || ''
@@ -100,7 +112,7 @@ export function useAnalysis() {
     }
   }, [])
 
-  return { progress, currentStep, stepIndex, result, error, isComplete, runAnalysis }
+  return { progress, currentStep, stepIndex, result, error, isComplete, insufficientMinutes, runAnalysis }
 }
 
 function delay(ms) {

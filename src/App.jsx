@@ -18,6 +18,8 @@ import VoiceAuthenticityPage from './pages/VoiceAuthenticityPage'
 
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
+import BillingPage from './pages/BillingPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 
 export default function App() {
   return (
@@ -43,6 +45,8 @@ export default function App() {
             <Route path="/checkin" element={<CheckInPage />} />
             <Route path="/people" element={<PeoplePage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/billing" element={<BillingPage />} />
+            <Route path="/admin" element={<AdminDashboardPage />} />
           </Route>
       </Routes>
     </BrowserRouter>

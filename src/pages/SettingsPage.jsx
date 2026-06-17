@@ -118,7 +118,9 @@ export default function SettingsPage() {
           <div>
             <SectionLabel>Account</SectionLabel>
             <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl shadow-sm overflow-hidden">
-              <LinkRow label="Subscription" right="Free Plan" />
+              <button onClick={() => navigate('/billing')} className="w-full">
+                <LinkRow label="Billing & Plans" />
+              </button>
               <Divider />
               <LinkRow label="Privacy Policy" />
               <Divider />

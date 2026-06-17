@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useEffect, useState } from 'react'
+import { getIdTokenResult } from 'firebase/auth'
 
 const NAV = [
   {
@@ -60,6 +62,13 @@ const NAV = [
 
 export default function Sidebar() {
   const { user } = useAuth()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    getIdTokenResult(user).then(r => setIsAdmin(!!r.claims.admin))
+  }, [user])
+
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'User'
   const email = user?.email || ''
   const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
@@ -98,6 +107,43 @@ export default function Sidebar() {
             )}
           </NavLink>
         ))}
+
+        {/* Billing */}
+        <NavLink to="/billing" end={false}>
+          {({ isActive }) => (
+            <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+              isActive
+                ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-300'
+            }`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke={isActive ? '#6C63FF' : 'currentColor'}
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0">
+                <rect x="2" y="5" width="20" height="14" rx="2"/>
+                <line x1="2" y1="10" x2="22" y2="10"/>
+              </svg>
+              Billing
+            </div>
+          )}
+        </NavLink>
+
+        {/* Admin — only shown when user has admin custom claim */}
+        {isAdmin && (
+          <NavLink to="/admin" end={false}>
+            {({ isActive }) => (
+              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-300'
+              }`}>
+                <svg viewBox="0 0 24 24" fill="none" stroke={isActive ? '#6C63FF' : 'currentColor'}
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Admin
+              </div>
+            )}
+          </NavLink>
+        )}
       </nav>
 
       {/* User */}
