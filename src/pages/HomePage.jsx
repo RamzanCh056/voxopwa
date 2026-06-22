@@ -179,7 +179,7 @@ export default function HomePage() {
       </div>
 
       {/* ══ Desktop header — inset rounded card ══ */}
-      <div className="hidden md:block mx-8 mt-6 px-8 py-6 rounded-[20px]"
+      <div className="hidden md:block mx-8 md:mx-auto md:max-w-5xl mt-6 px-8 py-6 rounded-[20px]"
         style={{ background: '#0F1729' }}>
         <div className="inline-flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1 mb-2">
           <span className="text-purple-300 text-xs">✨</span>
@@ -252,7 +252,7 @@ export default function HomePage() {
       </div>
 
       {/* ══ Desktop: add-audio card — sits below header card ══ */}
-      <div className="hidden md:block mx-8 mt-4 max-w-2xl bg-white dark:bg-[#1A1740] rounded-3xl shadow-lg p-6">
+      <div className="hidden md:block mx-8 md:mx-auto md:max-w-5xl mt-4 bg-white dark:bg-[#1A1740] rounded-3xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Add audio to analyze</h2>
           <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 text-xs font-semibold px-2.5 py-1 rounded-full">

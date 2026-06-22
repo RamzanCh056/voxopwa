@@ -1,4 +1,5 @@
 module.exports = {
+  FREE_MINUTES: 10,
   PLANS: {
     monthly:   { id: 'monthly',   label: '30 Days', minutesIncluded: 300,  priceId: process.env.PRICE_MONTHLY   || null, durationDays: 30  },
     quarterly: { id: 'quarterly', label: '90 Days', minutesIncluded: 1000, priceId: process.env.PRICE_QUARTERLY || null, durationDays: 90  },

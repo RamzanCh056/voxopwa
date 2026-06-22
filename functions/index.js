@@ -1,7 +1,7 @@
 const functions = require('firebase-functions/v1')
 const admin     = require('firebase-admin')
 const Stripe    = require('stripe')
-const { PLANS, TOPUP } = require('./plans')
+const { PLANS, TOPUP, FREE_MINUTES } = require('./plans')
 
 admin.initializeApp()
 const db = admin.firestore()
@@ -11,6 +11,19 @@ const db = admin.firestore()
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
 }
+
+// ─── 0. onUserCreate — grants free trial minutes on signup ──────────────────
+
+exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
+  await db.collection('users').doc(user.uid).set({
+    email:              user.email || null,
+    minutesIncluded:    FREE_MINUTES,
+    minutesUsed:        0,
+    planId:             null,
+    subscriptionStatus: null,
+    createdAt:          admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true })
+})
 
 async function getUserByCustomerId(customerId) {
   const snap = await db.collection('users')

@@ -36,6 +36,56 @@ function Toast({ message, type, onClose }) {
   )
 }
 
+function ThankYouDialog({ userData, onClose }) {
+  const ready   = userData?.minutesIncluded > 0
+  const planMeta = userData?.planId ? PLAN_META[userData.planId] : null
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center px-5"
+      onClick={onClose}>
+      <div onClick={e => e.stopPropagation()}
+        className="bg-white dark:bg-[#1A1740] rounded-3xl p-7 max-w-sm w-full text-center shadow-2xl"
+        style={{ animation: 'sheet-up 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
+
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+          style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)' }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"
+            strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+        </div>
+
+        <h2 className="text-xl font-extrabold text-gray-900 dark:text-white mb-1.5">
+          Thank you for your payment!
+        </h2>
+
+        {ready ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            You're on the <strong className="text-gray-800 dark:text-gray-200">{planMeta?.label || userData.planId}</strong> plan
+            with <strong className="text-gray-800 dark:text-gray-200">{userData.minutesIncluded.toLocaleString()}</strong> analysis minutes.
+          </p>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 flex items-center justify-center gap-2">
+            <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
+            </svg>
+            Activating your plan…
+          </p>
+        )}
+
+        <button onClick={onClose}
+          className="w-full py-3 rounded-2xl font-bold text-white text-sm"
+          style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
+          Got it
+        </button>
+
+        <style>{`@keyframes sheet-up{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+      </div>
+    </div>
+  )
+}
+
 function PlanCard({ planId, meta, price, status, currentPlanId, loading, onSelect }) {
   const isCurrent = status === 'active' && currentPlanId === planId
   const priceLabel = price
@@ -85,6 +135,7 @@ export default function BillingPage() {
   const [pricesError, setPricesError] = useState(false)
   const [loading,     setLoading]     = useState(null)
   const [toast,       setToast]       = useState(null)
+  const [showThankYou, setShowThankYou] = useState(false)
 
   // Live Firestore listener for usage
   useEffect(() => {
@@ -105,7 +156,7 @@ export default function BillingPage() {
   // Handle Stripe redirect params
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
-      setToast({ message: 'Payment successful! Your plan is now active.', type: 'success' })
+      setShowThankYou(true)
       setSearchParams({})
     } else if (searchParams.get('canceled') === 'true') {
       setToast({ message: 'Payment canceled — you were not charged.', type: 'info' })
@@ -137,12 +188,18 @@ export default function BillingPage() {
         .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : null
 
+  const periodStart = userData?.currentPeriodStart
+  const startDate = periodStart
+    ? new Date(periodStart.toMillis ? periodStart.toMillis() : periodStart)
+        .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null
+
   const hasActiveSub = status === 'active'
-  const topupPrice   = prices['topup_300']
 
   return (
     <div className="min-h-screen bg-[#F0F2F7] dark:bg-[#0F0C29] transition-colors px-4 py-8 pb-28 md:pb-10">
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+      {showThankYou && <ThankYouDialog userData={userData} onClose={() => setShowThankYou(false)} />}
 
       <div className="max-w-xl mx-auto space-y-5">
 
@@ -199,6 +256,11 @@ export default function BillingPage() {
                   <span>{pct}% used</span>
                   {renewDate && <span>Renews {renewDate}</span>}
                 </div>
+                {startDate && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Started {startDate}
+                  </p>
+                )}
               </>
             )}
 
@@ -238,27 +300,6 @@ export default function BillingPage() {
           </div>
         </div>
 
-        {/* ── Top-up card ── */}
-        <div className="bg-white dark:bg-[#1A1740] rounded-2xl p-5 shadow-sm flex items-center justify-between gap-4 border border-dashed border-purple-200 dark:border-purple-900/40">
-          <div>
-            <p className="font-semibold text-gray-900 dark:text-white">Top-up Minutes</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Add 300 minutes without changing your plan
-            </p>
-            {topupPrice && (
-              <p className="text-lg font-extrabold mt-1" style={{ color: '#6C63FF' }}>
-                {fmt(topupPrice.amount, topupPrice.currency)} once
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => handleSelect('topup_300')}
-            disabled={!!loading || !topupPrice}
-            className="flex-shrink-0 px-5 py-3 rounded-xl text-white text-sm font-semibold transition-opacity disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
-            {loading === 'topup_300' ? 'Redirecting…' : '+300 min'}
-          </button>
-        </div>
 
         <p className="text-xs text-center text-gray-400 dark:text-gray-500 pb-2">
           Payments are processed securely by Stripe. Cancel anytime from your Stripe billing portal.

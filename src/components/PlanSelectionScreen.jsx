@@ -1,36 +1,33 @@
-const FAKE_PLANS = [
-  {
-    id: 'monthly',
+import { useEffect, useState } from 'react'
+import { getPlanPrices, redirectToCheckout } from '../services/billingService'
+
+const PLAN_META = {
+  monthly: {
     label: '30 Days',
     minutesIncluded: 300,
-    price: 9.99,
-    period: '/month',
   },
-  {
-    id: 'quarterly',
+  quarterly: {
     label: '90 Days',
     minutesIncluded: 1000,
-    price: 24.99,
-    period: '/3 months',
     badge: 'Popular',
     badgeColor: { bg: '#EDE9FE', text: '#6D28D9', ring: '#8B5CF6' },
   },
-  {
-    id: 'yearly',
+  yearly: {
     label: '1 Year',
     minutesIncluded: 4500,
-    price: 79.99,
-    period: '/year',
     badge: 'Best Value',
     badgeColor: { bg: '#FEF3C7', text: '#92400E', ring: '#F59E0B' },
   },
-]
+}
 
-const FAKE_TOPUP = {
-  id: 'topup_300',
-  label: '+300 minutes',
-  price: 4.99,
-  description: 'One-time add-on, never expires',
+const PLAN_ORDER = ['monthly', 'quarterly', 'yearly']
+
+function periodLabel(interval, intervalCount) {
+  if (!interval) return ''
+  if (interval === 'month' && intervalCount === 3) return '/3 months'
+  if (interval === 'month') return '/month'
+  if (interval === 'year') return '/year'
+  return `/${intervalCount > 1 ? intervalCount : ''}${interval}`
 }
 
 function CheckIcon() {
@@ -42,47 +39,53 @@ function CheckIcon() {
   )
 }
 
-function PlanCard({ plan, onChoose }) {
-  const hasBadge = !!plan.badge
+function PlanCard({ planId, meta, priceInfo, onChoose, loading }) {
+  const hasBadge = !!meta.badge
+  const hasPrice = !!priceInfo
 
   return (
     <div
       className="relative bg-white dark:bg-[#1A1740] rounded-3xl p-5 flex flex-col gap-4 shadow-sm transition-transform active:scale-[0.98]"
       style={hasBadge ? {
-        border: `2px solid ${plan.badgeColor.ring}`,
-        boxShadow: `0 0 0 4px ${plan.badgeColor.ring}22`,
+        border: `2px solid ${meta.badgeColor.ring}`,
+        boxShadow: `0 0 0 4px ${meta.badgeColor.ring}22`,
       } : {
         border: '1.5px solid rgba(0,0,0,0.06)',
       }}>
 
-      {/* Badge */}
       {hasBadge && (
         <span
           className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[11px] font-bold"
-          style={{ background: plan.badgeColor.bg, color: plan.badgeColor.text }}>
-          {plan.badge}
+          style={{ background: meta.badgeColor.bg, color: meta.badgeColor.text }}>
+          {meta.badge}
         </span>
       )}
 
-      {/* Label */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">
-          {plan.label}
+          {meta.label}
         </p>
-        <div className="flex items-end gap-1">
-          <span className="text-4xl font-extrabold text-gray-900 dark:text-white leading-none">
-            ${plan.price}
-          </span>
-          <span className="text-sm text-gray-400 dark:text-gray-500 mb-1">{plan.period}</span>
-        </div>
+        {hasPrice ? (
+          <div className="flex items-end gap-1">
+            <span className="text-4xl font-extrabold text-gray-900 dark:text-white leading-none">
+              ${priceInfo.amount}
+            </span>
+            <span className="text-sm text-gray-400 dark:text-gray-500 mb-1">
+              {periodLabel(priceInfo.interval, priceInfo.intervalCount)}
+            </span>
+          </div>
+        ) : (
+          <div className="h-9 flex items-center">
+            <span className="text-sm text-gray-400 dark:text-gray-500">Price unavailable</span>
+          </div>
+        )}
       </div>
 
-      {/* Features */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <CheckIcon />
           <span className="text-sm text-gray-700 dark:text-gray-300">
-            <strong>{plan.minutesIncluded.toLocaleString()}</strong> analysis minutes included
+            <strong>{meta.minutesIncluded.toLocaleString()}</strong> analysis minutes included
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -95,31 +98,45 @@ function PlanCard({ plan, onChoose }) {
         </div>
       </div>
 
-      {/* CTA */}
       <button
-        onClick={() => onChoose(plan.id)}
-        className="w-full py-3 rounded-2xl font-bold text-sm text-white transition-all active:scale-95"
+        onClick={() => onChoose(planId)}
+        disabled={!hasPrice || loading}
+        className="w-full py-3 rounded-2xl font-bold text-sm text-white transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
           background: hasBadge
             ? 'linear-gradient(135deg,#6C63FF 0%,#8B85FF 60%,#4F8AFF 100%)'
             : 'linear-gradient(135deg,#6C63FF,#8B85FF)',
           boxShadow: hasBadge ? '0 6px 24px rgba(108,99,255,0.45)' : '0 4px 16px rgba(108,99,255,0.25)',
         }}>
-        Choose Plan
+        {loading ? 'Redirecting…' : 'Choose Plan'}
       </button>
     </div>
   )
 }
 
 export default function PlanSelectionScreen({ onDismiss }) {
-  function handleChoose(planId) {
-    console.log('[PlanSelectionScreen] plan selected:', planId)
-    onDismiss()
-  }
+  const [prices,  setPrices]  = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState('')
+  const [pendingPlan, setPendingPlan] = useState(null)
 
-  function handleTopup() {
-    console.log('[PlanSelectionScreen] topup selected')
-    onDismiss()
+  useEffect(() => {
+    getPlanPrices().then(setPrices)
+  }, [])
+
+  async function handleChoose(planId) {
+    setError('')
+    setPendingPlan(planId)
+    setLoading(true)
+    try {
+      await redirectToCheckout(planId)
+      // redirectToCheckout navigates away on success — no further action needed
+    } catch (err) {
+      console.error('[PlanSelectionScreen] checkout failed', err)
+      setError(err?.message || 'Could not start checkout. Please try again.')
+      setLoading(false)
+      setPendingPlan(null)
+    }
   }
 
   return (
@@ -148,40 +165,24 @@ export default function PlanSelectionScreen({ onDismiss }) {
           </button>
         </div>
 
+        {error && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Plan cards — stacked on mobile, row on desktop */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {FAKE_PLANS.map(plan => (
-            <PlanCard key={plan.id} plan={plan} onChoose={handleChoose} />
+          {PLAN_ORDER.map(planId => (
+            <PlanCard
+              key={planId}
+              planId={planId}
+              meta={PLAN_META[planId]}
+              priceInfo={prices?.[planId] || null}
+              onChoose={handleChoose}
+              loading={loading && pendingPlan === planId}
+            />
           ))}
-        </div>
-
-        {/* Top-up card */}
-        <div className="bg-white dark:bg-[#1A1740] rounded-2xl p-4 flex items-center gap-4 shadow-sm"
-          style={{ border: '1.5px solid rgba(0,0,0,0.06)' }}>
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg,#6C63FF22,#8B85FF22)' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="2"
-              strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="16"/>
-              <line x1="8" y1="12" x2="16" y2="12"/>
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-gray-900 dark:text-white">{FAKE_TOPUP.label}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">{FAKE_TOPUP.description}</p>
-          </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <span className="text-lg font-extrabold text-gray-900 dark:text-white">
-              ${FAKE_TOPUP.price}
-            </span>
-            <button
-              onClick={handleTopup}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-white"
-              style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
-              Add
-            </button>
-          </div>
         </div>
 
         {/* Bottom skip link */}

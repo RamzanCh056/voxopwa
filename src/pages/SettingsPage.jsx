@@ -1,8 +1,117 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { logOut } from '../services/authService'
+
+const PLAN_LABEL = { monthly: '30 Days', quarterly: '90 Days', yearly: '1 Year' }
+
+const STATUS_BADGE = {
+  active:   { bg: '#DCFCE7', text: '#15803D', label: 'Active'   },
+  past_due: { bg: '#FEF9C3', text: '#A16207', label: 'Past Due' },
+  canceled: { bg: '#FEE2E2', text: '#B91C1C', label: 'Canceled' },
+}
+
+function fmtDate(ts) {
+  if (!ts) return '—'
+  const d = new Date(ts.toMillis ? ts.toMillis() : ts)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function PlanSummaryCard({ billing, onManage }) {
+  if (billing === null) {
+    return (
+      <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl shadow-sm p-5 h-32 animate-pulse" />
+    )
+  }
+
+  const minutesUsed      = billing.minutesUsed      || 0
+  const minutesIncluded  = billing.minutesIncluded  || 0
+  const minutesRemaining = Math.max(0, minutesIncluded - minutesUsed)
+  const pct              = minutesIncluded > 0 ? Math.min(100, Math.round((minutesUsed / minutesIncluded) * 100)) : 0
+
+  const isPaidPlan  = !!billing.planId
+  const isFreeTrial = !isPaidPlan && minutesIncluded > 0
+  const hasMinutes  = minutesIncluded > 0
+
+  const badge = isPaidPlan
+    ? STATUS_BADGE[billing.status]
+    : isFreeTrial
+      ? { bg: '#EDE9FE', text: '#6D28D9', label: 'Free Trial' }
+      : null
+
+  const planLabel = isPaidPlan
+    ? (PLAN_LABEL[billing.planId] || billing.planId)
+    : isFreeTrial
+      ? 'Free Trial'
+      : 'No active plan'
+
+  return (
+    <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl shadow-sm p-5">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">
+            Current Plan
+          </p>
+          <p className="font-bold text-gray-900 dark:text-white text-base">
+            {planLabel}
+          </p>
+        </div>
+        {badge && (
+          <span className="text-xs font-bold px-3 py-1 rounded-full flex-shrink-0"
+            style={{ background: badge.bg, color: badge.text }}>
+            {badge.label}
+          </span>
+        )}
+      </div>
+
+      {hasMinutes ? (
+        <>
+          <div className="flex items-baseline gap-1.5 mb-2">
+            <span className="text-2xl font-extrabold text-gray-900 dark:text-white">
+              {minutesRemaining.toLocaleString()}
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              of {minutesIncluded.toLocaleString()} min left
+              {isFreeTrial && ' (free trial)'}
+            </span>
+          </div>
+
+          <div className="w-full h-2 rounded-full overflow-hidden bg-gray-100 dark:bg-[#2E2B5B] mb-3">
+            <div className="h-full rounded-full transition-all duration-500"
+              style={{
+                width:      `${pct}%`,
+                background: pct > 80 ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : 'linear-gradient(90deg,#6C63FF,#8B85FF)',
+              }} />
+          </div>
+
+          {isPaidPlan ? (
+            <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 mb-4">
+              <span>Started {fmtDate(billing.currentPeriodStart)}</span>
+              <span>Renews {fmtDate(billing.currentPeriodEnd)}</span>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+              Upgrade to a paid plan for more minutes and uninterrupted analysis.
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+          You're out of minutes. Subscribe to a plan to keep analyzing recordings.
+        </p>
+      )}
+
+      <button onClick={onManage}
+        className="w-full py-2.5 rounded-xl text-sm font-semibold text-white"
+        style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
+        {isPaidPlan ? 'Manage Billing' : 'View Plans'}
+      </button>
+    </div>
+  )
+}
 
 function Toggle({ enabled, onChange }) {
   return (
@@ -59,6 +168,15 @@ export default function SettingsPage() {
   const [notifications, setNotifications] = useState(true)
   const [autoAnalyze, setAutoAnalyze] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const [billing, setBilling] = useState(null)
+
+  useEffect(() => {
+    if (!user) return
+    const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
+      setBilling(snap.exists() ? snap.data() : {})
+    })
+    return unsub
+  }, [user])
 
   const displayName = user?.displayName || 'User'
   const email = user?.email || ''
@@ -101,6 +219,8 @@ export default function SettingsPage() {
             Edit
           </button>
         </div>
+
+        <PlanSummaryCard billing={billing} onManage={() => navigate('/billing')} />
 
         <div className="md:grid md:grid-cols-2 md:gap-4 flex flex-col gap-4">
 
