@@ -140,10 +140,10 @@ export default function RecordingPage() {
               <p className="text-xs mt-0.5" style={{ color: '#6C63FF' }}>{analysis.confidence ?? 0}%</p>
             </div>
             <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-4 shadow-sm text-center">
-              <p className="text-xs text-gray-400 mb-1">Reliability</p>
-              <p className="text-xl mb-0.5">🛡️</p>
-              <p className="font-bold text-gray-800 dark:text-white text-sm">{analysis.reliability || '—'}</p>
-              <p className="text-xs mt-0.5" style={{ color: '#22C55E' }}>{analysis.reliabilityScore ?? 0}/100</p>
+              <p className="text-xs text-gray-400 mb-1">Style</p>
+              <p className="text-xl mb-0.5">🎯</p>
+              <p className="font-bold text-gray-800 dark:text-white text-sm">{analysis.communicationStyle || '—'}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#22C55E' }}>{analysis.clarityScore ?? 0}/100</p>
             </div>
           </div>
         )}
@@ -166,39 +166,84 @@ export default function RecordingPage() {
           </div>
         )}
 
-        {/* What We'll Detect — shown when no analysis yet */}
+        {/* Pre-analysis state */}
         {!analysis && (
-          <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-4 shadow-sm">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              What We'll Detect
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {['Mood', 'Stress level', 'Intent', 'Confidence', 'Honesty signals', 'Emotional tone'].map(tag => (
-                <span key={tag} className="text-xs px-3 py-1 rounded-full font-medium"
-                  style={{ background: 'rgba(108,99,255,0.08)', color: '#6C63FF' }}>
-                  {tag}
-                </span>
+          <>
+            {/* CTA banner */}
+            <div className="rounded-2xl p-5 flex items-center gap-4"
+              style={{ background: 'linear-gradient(135deg,#6C63FF 0%,#4F8AFF 100%)' }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.15)' }}>
+                <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                  <line x1="12" y1="19" x2="12" y2="22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <p className="font-bold text-white text-sm">Ready to analyze</p>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                  Tap "Get Started" to transcribe &amp; coach this recording with AI
+                </p>
+              </div>
+            </div>
+
+            {/* What the report includes */}
+            <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl shadow-sm overflow-hidden">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 pt-4 pb-2">
+                Your report will include
+              </p>
+              {[
+                { emoji: '😌', label: 'Mood & Emotion', desc: 'Primary mood and emotion breakdown from what was said' },
+                { emoji: '🎯', label: 'Communication Style', desc: 'Direct, Diplomatic, Assertive — how you come across' },
+                { emoji: '📈', label: 'Sentiment Flow', desc: 'How your tone shifted throughout the conversation' },
+                { emoji: '✨', label: 'AI Coaching', desc: 'What went well, what to improve, suggested phrases' },
+                { emoji: '📝', label: 'Full Transcript', desc: 'Every word with accurate timestamps from Whisper AI' },
+              ].map((item, i, arr) => (
+                <div key={item.label}
+                  className="flex items-center gap-3 px-4 py-3"
+                  style={{ borderBottom: i < arr.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none' }}>
+                  <span className="text-xl flex-shrink-0">{item.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white">{item.label}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{item.desc}</p>
+                  </div>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2"
+                    strokeLinecap="round" className="w-4 h-4 flex-shrink-0">
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                </div>
               ))}
             </div>
-          </div>
+
+            {/* Duration estimate */}
+            <div className="flex items-center gap-2 px-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"
+                strokeLinecap="round" className="w-4 h-4 flex-shrink-0">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Analysis takes 15–30 seconds · uses {Math.max(1, Math.ceil((duration || 60) / 60))} minute{Math.ceil((duration || 60) / 60) > 1 ? 's' : ''} from your plan
+              </p>
+            </div>
+          </>
         )}
 
         {/* Action buttons */}
         <div className="flex flex-col gap-3 mt-auto pt-2">
           <button
             onClick={() => id && navigate(`/progress/${id}`)}
-            disabled={!recording}
-            className="w-full py-3.5 rounded-2xl font-semibold text-sm border-2 disabled:opacity-50 transition-all bg-white dark:bg-[#1E1B4B]"
-            style={{ borderColor: '#6C63FF', color: '#6C63FF' }}>
-            {analysis ? 'Re-Analyze' : 'Get Started'}
+            className="w-full py-3.5 rounded-2xl font-semibold text-sm text-white transition-all"
+            style={{ background: analysis ? 'transparent' : 'linear-gradient(135deg,#6C63FF,#4F8AFF)', border: analysis ? '2px solid #6C63FF' : 'none', color: analysis ? '#6C63FF' : 'white', boxShadow: analysis ? 'none' : '0 6px 24px rgba(108,99,255,0.4)' }}>
+            {analysis ? 'Re-Analyze' : 'Get Started →'}
           </button>
 
           {analysis && (
             <button
-              onClick={() => navigate(`/reliability/${id}`)}
+              onClick={() => navigate(`/summary/${id}`)}
               className="w-full py-3.5 rounded-2xl font-semibold text-sm text-white"
               style={{ background: 'linear-gradient(135deg,#4F8AFF,#6C63FF)', boxShadow: '0 6px 24px rgba(79,138,255,0.35)' }}>
-              View Reliability Insights
+              View Full Report
             </button>
           )}
 

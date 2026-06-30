@@ -5,9 +5,9 @@ import { useAuth } from '../context/AuthContext'
 import { saveAnalysis } from '../services/firestoreService'
 
 const STEPS = [
-  { label: 'Transcribing audio', detail: 'Converting speech to text…' },
-  { label: 'Analyzing emotions', detail: 'Detecting mood & stress patterns…' },
-  { label: 'Generating mood report', detail: 'Building your insights…' },
+  { label: 'Transcribing audio', detail: 'Converting speech to text with AI…' },
+  { label: 'Analyzing communication', detail: 'Detecting mood, tone & patterns…' },
+  { label: 'Generating your report', detail: 'Building personalized insights…' },
 ]
 
 function CircularProgress({ pct }) {
@@ -56,7 +56,7 @@ export default function AnalysisProgressPage() {
       saveAnalysis(user.uid, id, result)
         .catch(console.error)
         .finally(() => {
-          setTimeout(() => navigate(`/summary/${id}`), 500)
+          setTimeout(() => navigate(`/summary/${id}`, { replace: true }), 500)
         })
     }
   }, [isComplete, result, user, id, navigate])
@@ -93,16 +93,56 @@ export default function AnalysisProgressPage() {
   }
 
   if (error) {
+    const isNotFound = error.includes('not found in local storage') || error.includes('re-import')
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-5 bg-[#F0F2F7] dark:bg-[#0F0C29]">
-        <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-6 shadow-sm text-center max-w-sm w-full">
-          <p className="text-red-500 font-semibold mb-2">Analysis Failed</p>
-          <p className="text-sm text-gray-500 mb-4">{error}</p>
-          <button onClick={() => id && runAnalysis(id)}
-            className="w-full py-3 rounded-xl text-white font-semibold text-sm"
-            style={{ background: '#6C63FF' }}>
-            Try Again
+      <div className="flex flex-col min-h-screen bg-[#F0F2F7] dark:bg-[#0F0C29]">
+        <div className="flex items-center gap-3 px-5 pt-12 pb-5 bg-white dark:bg-[#1A1740] border-b border-gray-100 dark:border-[#2E2B5B]">
+          <button onClick={() => navigate('/')}
+            className="w-8 h-8 flex items-center justify-center rounded-full"
+            style={{ background: 'rgba(108,99,255,0.08)' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="2" strokeLinecap="round" className="w-4 h-4">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
           </button>
+          <h1 className="text-base font-bold text-gray-800 dark:text-white">Analysis Failed</h1>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-5">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'rgba(239,68,68,0.1)' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
+
+          <div className="text-center max-w-sm">
+            <p className="font-bold text-gray-800 dark:text-white text-lg mb-2">
+              {isNotFound ? 'Audio Not Found' : 'Analysis Failed'}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              {isNotFound
+                ? 'The audio file is no longer in your local storage. Please go back and re-upload the file to analyze it.'
+                : error}
+            </p>
+          </div>
+
+          <div className="w-full max-w-sm flex flex-col gap-3">
+            {!isNotFound && (
+              <button onClick={() => id && runAnalysis(id)}
+                className="w-full py-3.5 rounded-2xl text-white font-semibold text-sm"
+                style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
+                Try Again
+              </button>
+            )}
+            <button onClick={() => navigate('/')}
+              className="w-full py-3.5 rounded-2xl font-semibold text-sm bg-white dark:bg-[#1E1B4B] border-2"
+              style={{ borderColor: '#6C63FF', color: '#6C63FF' }}>
+              Back to Home
+            </button>
+          </div>
         </div>
       </div>
     )

@@ -68,7 +68,9 @@ export default function ReliabilityInsightsPage() {
   const a = analysis || {}
   const timeline = a.moodTimeline || []
   const insights = a.insights || []
-  const style = reliabilityStyle(a.reliability)
+  const clarityScore = a.clarityScore ?? 0
+  const clarityLabel = clarityScore >= 70 ? 'High' : clarityScore >= 40 ? 'Medium' : 'Low'
+  const style = reliabilityStyle(clarityLabel)
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F0F2F7] dark:bg-[#0F0C29] transition-colors duration-300">
@@ -85,7 +87,7 @@ export default function ReliabilityInsightsPage() {
             </svg>
           </button>
           <div>
-            <h1 className="text-lg font-bold text-white">Reliability Insights</h1>
+            <h1 className="text-lg font-bold text-white">Communication Clarity</h1>
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{recording?.filename || '—'}</p>
           </div>
         </div>
@@ -100,7 +102,7 @@ export default function ReliabilityInsightsPage() {
           </svg>
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-white">Reliability Insights</h1>
+          <h1 className="text-xl font-bold text-gray-800 dark:text-white">Communication Clarity</h1>
           <p className="text-xs text-gray-400">{recording?.filename || '—'}</p>
         </div>
       </div>
@@ -125,9 +127,10 @@ export default function ReliabilityInsightsPage() {
                 </svg>
               </div>
               <div>
-                <p className="font-bold text-gray-800 dark:text-white">{a.reliability || '—'} Reliability</p>
+                <p className="font-bold text-gray-800 dark:text-white">{clarityLabel} Clarity</p>
                 <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                  Overall score of <strong>{a.reliabilityScore ?? 0}/100</strong>. {a.honestyLabel || ''}
+                  Clarity score: <strong>{clarityScore}/100</strong>
+                  {a.communicationStyle ? ` · ${a.communicationStyle} style` : ''}
                 </p>
               </div>
             </div>
@@ -137,7 +140,7 @@ export default function ReliabilityInsightsPage() {
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-semibold text-gray-800 dark:text-white">Reliability Over Time</p>
                   <span className="text-xs font-bold" style={{ color: '#22C55E' }}>
-                    Score {a.reliabilityScore ?? 0}%
+                    Clarity {clarityScore}%
                   </span>
                 </div>
                 <div className="flex items-end gap-2">

@@ -25,21 +25,22 @@ function formatDate(ts) {
 const MOOD_EMOJIS = { Happy: '😊', Excited: '🤩', Sad: '😢', Angry: '😠', Calm: '😌', Neutral: '😐', Stressed: '😰', Anxious: '😟', Surprised: '😲' }
 const MOOD_BG = { Happy: '#FEF9C3', Excited: '#F3E8FF', Sad: '#DBEAFE', Angry: '#FEE2E2', Calm: '#D1FAE5', Neutral: '#F3F4F6', Stressed: '#FFEDD5', Anxious: '#FEF3C7' }
 
-function HonestyRing({ score }) {
+function ClarityRing({ score }) {
   const r = 44
   const circ = 2 * Math.PI * r
   const offset = circ - (score / 100) * circ
+  const color = score >= 70 ? '#22C55E' : score >= 40 ? '#F59E0B' : '#EF4444'
   return (
     <div className="relative w-28 h-28 flex items-center justify-center">
       <svg className="absolute inset-0 -rotate-90" viewBox="0 0 104 104">
         <circle cx="52" cy="52" r={r} fill="none" stroke="#F0F2F7" strokeWidth="9" />
-        <circle cx="52" cy="52" r={r} fill="none" stroke="#22C55E" strokeWidth="9"
+        <circle cx="52" cy="52" r={r} fill="none" stroke={color} strokeWidth="9"
           strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
           style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
       </svg>
       <div className="flex flex-col items-center z-10">
-        <span className="text-2xl font-bold text-gray-800">{score}%</span>
-        <span className="text-[10px] text-gray-400">honest</span>
+        <span className="text-2xl font-bold text-gray-800 dark:text-white">{score}%</span>
+        <span className="text-[10px] text-gray-400">clarity</span>
       </div>
     </div>
   )
@@ -100,36 +101,23 @@ export default function CallSummaryPage() {
     const c2x = margin + half + 10
     cardRect(c2x, y, half, 68)
     st(...GRAY); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5)
-    doc.text('Reliability', c2x + 10, y + 16)
+    doc.text('Clarity', c2x + 10, y + 16)
     st(...DARK); doc.setFont('helvetica', 'bold'); doc.setFontSize(14)
-    doc.text(a.reliability || '—', c2x + 10, y + 38)
+    doc.text(a.communicationStyle || '—', c2x + 10, y + 38)
     st(...GREEN); doc.setFont('helvetica', 'normal'); doc.setFontSize(8)
-    doc.text(`${a.reliabilityScore ?? 0} / 100`, c2x + 10, y + 55)
+    doc.text(`${a.clarityScore ?? 0} / 100`, c2x + 10, y + 55)
     y += 80
 
-    sectionLabel('Truth & Intent')
+    sectionLabel('Communication Style')
     cardRect(margin, y, cW, 54)
     st(...GRAY); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5)
-    doc.text('Honesty Score', margin + 10, y + 14)
+    doc.text('Clarity Score', margin + 10, y + 14)
     st(...DARK); doc.setFont('helvetica', 'bold'); doc.setFontSize(10)
-    doc.text(`${a.honestyScore ?? 0}/100  —  ${a.honestyLabel || ''}`, margin + 10, y + 28)
+    doc.text(`${a.clarityScore ?? 0}/100  —  Sentiment: ${a.sentimentFlow || ''}`, margin + 10, y + 28)
     const bX = margin + 10, bY = y + 36, bW = cW - 20, bH = 8
     sf(...LIGHT); doc.roundedRect(bX, bY, bW, bH, 4, 4, 'F')
-    if ((a.honestyScore ?? 0) > 0) { sf(...GREEN); doc.roundedRect(bX, bY, ((a.honestyScore ?? 0) / 100) * bW, bH, 4, 4, 'F') }
+    if ((a.clarityScore ?? 0) > 0) { sf(...GREEN); doc.roundedRect(bX, bY, ((a.clarityScore ?? 0) / 100) * bW, bH, 4, 4, 'F') }
     y += 68
-
-    if ((a.detectedSignals || []).length > 0) {
-      sectionLabel('Detected Signals')
-      let px = margin; const pillH = 16
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5)
-      a.detectedSignals.forEach(sig => {
-        const tw = doc.getTextWidth(sig) + 14
-        if (px + tw > W - margin) { px = margin; y += pillH + 4 }
-        sf(254, 226, 226); doc.roundedRect(px, y - 11, tw, pillH, 3, 3, 'F')
-        st(...RED); doc.text(sig, px + 7, y - 1); px += tw + 6
-      })
-      y += pillH + 8
-    }
 
     if ((a.moodTimeline || []).length > 0) {
       if (y > 660) { doc.addPage(); y = 40 }
@@ -212,13 +200,14 @@ export default function CallSummaryPage() {
       ['Filename', recording?.filename || ''],
       ['Primary Mood', a.primaryMood || ''],
       ['Confidence', a.confidence || ''],
-      ['Reliability', a.reliability || ''],
-      ['Reliability Score', a.reliabilityScore || ''],
-      ['Honesty Score', a.honestyScore || ''],
-      ['Honesty Label', a.honestyLabel || ''],
-      ['Detected Signals', (a.detectedSignals || []).join('; ')],
+      ['Communication Style', a.communicationStyle || ''],
+      ['Clarity Score', a.clarityScore || ''],
+      ['Sentiment Flow', a.sentimentFlow || ''],
       ['Insights', (a.insights || []).join('; ')],
       ['Recommendations', (a.recommendations || []).join('; ')],
+      ['What Went Well', (a.whatWentWell || []).join('; ')],
+      ['Improvements', (a.improvements || []).join('; ')],
+      ['Transcription', a.transcription || ''],
     ]
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -231,8 +220,9 @@ export default function CallSummaryPage() {
   const a = analysis || {}
   const emoEntries = Object.entries(a.emotions || {}).filter(([, v]) => v >= 0)
 
-  const reliabilityDot = a.reliability === 'High' ? '90%' : a.reliability === 'Medium' ? '50%' : '10%'
-  const reliabilityDotColor = a.reliability === 'High' ? '#22C55E' : a.reliability === 'Medium' ? '#F59E0B' : '#EF4444'
+  const clarityScore = a.clarityScore ?? 0
+  const clarityLabel = clarityScore >= 70 ? 'High' : clarityScore >= 40 ? 'Medium' : 'Low'
+  const clarityColor = clarityScore >= 70 ? '#22C55E' : clarityScore >= 40 ? '#F59E0B' : '#EF4444'
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F0F2F7] dark:bg-[#0F0C29] transition-colors duration-300">
@@ -340,15 +330,15 @@ export default function CallSummaryPage() {
                   </div>
                 </div>
                 <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-4 shadow-sm">
-                  <p className="text-xs text-gray-400 mb-2">Reliability</p>
+                  <p className="text-xs text-gray-400 mb-2">Clarity</p>
                   <div className="flex items-center gap-2">
-                    <svg viewBox="0 0 24 24" fill="#22C55E" className="w-6 h-6 flex-shrink-0">
+                    <svg viewBox="0 0 24 24" fill={clarityColor} className="w-6 h-6 flex-shrink-0">
                       <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25z" clipRule="evenodd" />
                     </svg>
                     <div>
-                      <p className="font-bold text-gray-800 dark:text-white text-sm">{a.reliability || '—'}</p>
-                      <p className="text-xs font-medium mt-0.5" style={{ color: '#22C55E' }}>
-                        {a.reliabilityScore ?? 0} / 100
+                      <p className="font-bold text-gray-800 dark:text-white text-sm">{clarityLabel}</p>
+                      <p className="text-xs font-medium mt-0.5" style={{ color: clarityColor }}>
+                        {clarityScore} / 100
                       </p>
                     </div>
                   </div>
@@ -385,58 +375,40 @@ export default function CallSummaryPage() {
               </div>
             )}
 
-            {/* Reliability Score Tracker */}
-            <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl shadow-sm p-4">
-              <p className="text-sm font-semibold text-gray-800 dark:text-white mb-4">Reliability Score</p>
-              <div className="relative px-2">
-                <div className="h-2 rounded-full" style={{ background: 'linear-gradient(to right, #F87171, #FBBF24, #34D399)' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow border-2 bg-white transition-all duration-500"
-                  style={{ left: reliabilityDot, transform: 'translate(-50%, -50%)', borderColor: reliabilityDotColor }} />
-                <div className="flex justify-between mt-3">
-                  <span className="text-xs text-gray-400">Low</span>
-                  <span className="text-xs text-gray-400">Medium</span>
-                  <span className="text-xs text-gray-400">High</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Truth & Intent */}
+            {/* Communication Style */}
             <div>
               <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-1">
-                Truth &amp; Intent
+                Communication Style
               </p>
               <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-4 shadow-sm flex flex-col gap-4">
                 <div className="flex items-center gap-4">
-                  <HonestyRing score={a.honestyScore ?? 0} />
+                  <ClarityRing score={clarityScore} />
                   <div className="flex flex-col gap-2">
                     <div>
-                      <p className="text-xs text-gray-400">Honesty Score</p>
-                      <p className="font-bold text-gray-800 dark:text-white text-base">{a.honestyScore ?? 0} / 100</p>
+                      <p className="text-xs text-gray-400">Communication Clarity</p>
+                      <p className="font-bold text-gray-800 dark:text-white text-base">{clarityScore} / 100</p>
                     </div>
-                    <span className="self-start text-xs px-2.5 py-1 rounded-full font-semibold"
-                      style={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>
-                      {a.honestyLabel || '—'}
-                    </span>
+                    {a.communicationStyle && (
+                      <span className="self-start text-xs px-2.5 py-1 rounded-full font-semibold"
+                        style={{ background: 'rgba(108,99,255,0.1)', color: '#6C63FF' }}>
+                        {a.communicationStyle}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {(a.detectedSignals || []).length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-400 mb-2">Detected signals</p>
-                    <div className="flex flex-wrap gap-2">
-                      {a.detectedSignals.map(s => (
-                        <span key={s} className="text-xs px-2.5 py-1 rounded-full font-medium"
-                          style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                          {s}
-                        </span>
-                      ))}
-                    </div>
+                {a.sentimentFlow && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ background: '#4F8AFF' }} />
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      Sentiment flow: <span className="font-semibold">{a.sentimentFlow}</span>
+                    </p>
                   </div>
                 )}
 
                 {(a.keyTimestamps || []).length > 0 && (
                   <div>
-                    <p className="text-xs text-gray-400 mb-2">Key timestamps</p>
+                    <p className="text-xs text-gray-400 mb-2">Key moments</p>
                     <div className="flex flex-col gap-1.5">
                       {a.keyTimestamps.map((t, i) => (
                         <div key={i} className="flex items-center gap-2.5">
@@ -601,7 +573,7 @@ export default function CallSummaryPage() {
               <button onClick={() => navigate(`/reliability/${id}`)}
                 className="flex-1 py-3 rounded-2xl font-semibold text-sm border-2 bg-white dark:bg-[#1E1B4B]"
                 style={{ borderColor: '#6C63FF', color: '#6C63FF' }}>
-                Reliability Insights
+                Clarity Insights
               </button>
             </div>
 

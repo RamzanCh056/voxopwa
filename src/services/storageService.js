@@ -19,12 +19,14 @@ const ALLOWED_TYPES = new Set([
   'audio/x-m4a',       // .m4a iOS
   'audio/3gpp',        // .3gp
   'audio/amr',         // .amr
-  'video/mp4',         // some .m4a files report as video/mp4
-  'video/webm',        // .webm with video track
+  'video/webm',        // .webm with video track (audio-only webm)
   '',                  // unknown — allow (some opus files report no type)
 ])
 
 export function isAudioTypeAllowed(file) {
+  const ext = file.name?.split('.').pop()?.toLowerCase() || ''
+  // Block video extensions explicitly regardless of MIME type
+  if (ext === 'mp4' || ext === 'mkv' || ext === 'avi' || ext === 'mov') return false
   const type = file.type || ''
   // Always allow empty type (WhatsApp opus often reports no MIME type)
   if (type === '') return true
@@ -94,4 +96,10 @@ export async function updateRecording(id, updates) {
 export async function deleteRecording(id) {
   const db = await getDB()
   return db.delete(STORE, id)
+}
+
+export async function getLocalAudioIds() {
+  const db = await getDB()
+  const all = await db.getAll(STORE)
+  return new Set(all.filter(r => r.audioBlob).map(r => r.id))
 }

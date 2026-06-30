@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { saveRecordingMeta, getRecordingsMeta } from '../services/firestoreService'
-import { saveRecording, isAudioTypeAllowed } from '../services/storageService'
+import { saveRecordingMeta, getRecordingsMeta, deleteRecordingMeta } from '../services/firestoreService'
+import { saveRecording, isAudioTypeAllowed, getLocalAudioIds, deleteRecording } from '../services/storageService'
 import RecordSheet from '../components/RecordSheet'
 
 /* Animated equalizer bars */
@@ -61,14 +61,17 @@ export default function HomePage() {
 
   const [selected,        setSelected]        = useState(null)
   const [recordings,      setRecordings]      = useState([])
+  const [localIds,        setLocalIds]        = useState(new Set())
   const [uploading,       setUploading]       = useState(false)
   const [fileError,       setFileError]       = useState('')
   const [showRecordSheet, setShowRecordSheet] = useState(false)
+  const [reuploadFor,     setReuploadFor]     = useState(null)
 
   const loadRecordings = useCallback(async (selectId = null) => {
     if (!user) return
-    const recs = await getRecordingsMeta(user.uid)
+    const [recs, ids] = await Promise.all([getRecordingsMeta(user.uid), getLocalAudioIds()])
     setRecordings(recs)
+    setLocalIds(ids)
     if (selectId) {
       setSelected(selectId)
     } else if (recs.length > 0 && !selected) {
@@ -113,20 +116,34 @@ export default function HomePage() {
     }
     setUploading(true)
     try {
-      const duration    = await getAudioDuration(file)
-      const meta        = { filename: file.name, duration, date: new Date().toISOString(), analysisStatus: 'pending', analysis: null }
-      const firestoreId = await saveRecordingMeta(user.uid, meta)
-      await saveRecording({ id: firestoreId, ...meta, audioBlob: file })
-      await loadRecordings(firestoreId)
+      if (reuploadFor) {
+        // Re-uploading audio for an existing Firestore record
+        const duration = await getAudioDuration(file)
+        await saveRecording({ id: reuploadFor, filename: file.name, audioBlob: file, duration, analysisStatus: 'pending', analysis: null })
+        setReuploadFor(null)
+        await loadRecordings(reuploadFor)
+      } else {
+        const duration    = await getAudioDuration(file)
+        const meta        = { filename: file.name, duration, date: new Date().toISOString(), analysisStatus: 'pending', analysis: null }
+        const firestoreId = await saveRecordingMeta(user.uid, meta)
+        await saveRecording({ id: firestoreId, ...meta, audioBlob: file })
+        await loadRecordings(firestoreId)
+      }
     } finally {
       setUploading(false)
       e.target.value = ''
     }
   }
 
-  const analyzedCount = recordings.filter(r => r.analysis).length
+  async function handleDeleteMissing(id) {
+    await Promise.all([deleteRecording(id).catch(() => {}), deleteRecordingMeta(user.uid, id)])
+    await loadRecordings()
+  }
 
-  const analyzeBtn = (
+  const analyzedCount = recordings.filter(r => r.analysis).length
+  const selectedHasBlob = selected ? localIds.has(selected) : false
+
+  const analyzeBtn = selectedHasBlob || !selected ? (
     <button
       onClick={() => selected && navigate(`/recording-details/${selected}`)}
       disabled={!selected || uploading}
@@ -156,6 +173,19 @@ export default function HomePage() {
         </>
       )}
     </button>
+  ) : (
+    <button
+      onClick={() => { setReuploadFor(selected); fileRef.current?.click() }}
+      className="relative w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 border-2"
+      style={{ borderColor: '#F59E0B', color: '#F59E0B', background: 'rgba(245,158,11,0.06)' }}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+        strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Re-upload Audio to Analyze
+    </button>
   )
 
   return (
@@ -163,7 +193,7 @@ export default function HomePage() {
 
       {/* Hidden file input — shared by all upload triggers */}
       <input ref={fileRef} type="file"
-        accept=".mp3,.m4a,.wav,.webm,.ogg,.opus,.aac,.flac,.wma,.mp4,.3gp,.amr"
+        accept=".mp3,.m4a,.wav,.webm,.ogg,.opus,.aac,.flac,.wma,.3gp,.amr"
         className="hidden"
         onChange={handleFileSelect} />
 
@@ -369,9 +399,12 @@ export default function HomePage() {
           <div className="flex flex-col gap-2.5 md:grid md:grid-cols-2 md:gap-3">
             {recordings.map((rec, index) => {
               const isSelected = selected === rec.id
+              const hasBlob = localIds.has(rec.id)
               return (
-                <button key={rec.id} onClick={() => setSelected(rec.id)}
-                  className="relative w-full rounded-2xl px-4 py-3.5 flex items-center gap-3 text-left active:scale-[0.97] transition-all overflow-hidden"
+                <div key={rec.id} onClick={() => setSelected(rec.id)}
+                  role="button" tabIndex={0}
+                  onKeyDown={e => e.key === 'Enter' && setSelected(rec.id)}
+                  className="relative w-full rounded-2xl px-4 py-3.5 flex items-center gap-3 text-left active:scale-[0.97] transition-all overflow-hidden cursor-pointer"
                   style={{
                     background: isSelected
                       ? (darkMode ? 'rgba(108,99,255,0.15)' : 'rgba(108,99,255,0.06)')
@@ -400,7 +433,15 @@ export default function HomePage() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">{rec.filename}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-semibold text-gray-800 dark:text-white text-sm truncate">{rec.filename}</p>
+                      {!hasBlob && (
+                        <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: 'rgba(245,158,11,0.12)', color: '#F59E0B' }}>
+                          missing
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-xs text-gray-400 dark:text-gray-500">{formatDuration(rec.duration)}</span>
                       <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
@@ -408,20 +449,33 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200"
-                    style={{
-                      background: isSelected ? 'linear-gradient(135deg,#6C63FF,#8B85FF)' : 'transparent',
-                      border: `2px solid ${isSelected ? 'transparent' : (darkMode ? '#3A3760' : '#D1D5DB')}`,
-                      boxShadow: isSelected ? '0 0 0 3px rgba(108,99,255,0.2)' : 'none',
-                    }}>
-                    {isSelected && (
-                      <svg viewBox="0 0 10 10" fill="none" className="w-2.5 h-2.5">
-                        <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.6"
-                          strokeLinecap="round" strokeLinejoin="round"/>
+                  {!hasBlob && isSelected ? (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDeleteMissing(rec.id) }}
+                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+                      style={{ background: 'rgba(239,68,68,0.1)' }}
+                      title="Remove this entry">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5"
+                        strokeLinecap="round" className="w-3 h-3">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                       </svg>
-                    )}
-                  </div>
-                </button>
+                    </button>
+                  ) : (
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-200"
+                      style={{
+                        background: isSelected ? 'linear-gradient(135deg,#6C63FF,#8B85FF)' : 'transparent',
+                        border: `2px solid ${isSelected ? 'transparent' : (darkMode ? '#3A3760' : '#D1D5DB')}`,
+                        boxShadow: isSelected ? '0 0 0 3px rgba(108,99,255,0.2)' : 'none',
+                      }}>
+                      {isSelected && (
+                        <svg viewBox="0 0 10 10" fill="none" className="w-2.5 h-2.5">
+                          <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.6"
+                            strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>
