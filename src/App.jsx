@@ -18,6 +18,7 @@ import MoodTimelinePage from './pages/MoodTimelinePage'
 import ReliabilityInsightsPage from './pages/ReliabilityInsightsPage'
 import ExportReportPage from './pages/ExportReportPage'
 import VoiceAuthenticityPage from './pages/VoiceAuthenticityPage'
+import LiveCoachReportPage from './pages/LiveCoachReportPage'
 
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
@@ -55,6 +56,7 @@ function AppShell() {
         <Route path="/reliability/:id"     element={<ProtectedRoute><ReliabilityInsightsPage /></ProtectedRoute>} />
         <Route path="/export/:id"          element={<ProtectedRoute><ExportReportPage /></ProtectedRoute>} />
         <Route path="/voice-auth/:id"      element={<ProtectedRoute><VoiceAuthenticityPage /></ProtectedRoute>} />
+        <Route path="/coach-report"        element={<ProtectedRoute><LiveCoachReportPage /></ProtectedRoute>} />
 
         {/* Protected main app — sidebar on desktop, BottomNav on mobile */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

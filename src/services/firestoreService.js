@@ -80,3 +80,15 @@ export const saveUserProfile = async (userId, data) => {
     })
   } catch (err) { handleFirestoreError(err, 'saveUserProfile') }
 }
+
+export const getUserMinutes = async (userId) => {
+  try {
+    const snap = await getDoc(doc(db, 'users', userId))
+    if (!snap.exists()) return { minutesIncluded: 0, minutesUsed: 0, remaining: 0 }
+    const data = snap.data()
+    const minutesIncluded = data.minutesIncluded || 0
+    const minutesUsed     = data.minutesUsed     || 0
+    const remaining       = Math.max(0, minutesIncluded - minutesUsed)
+    return { minutesIncluded, minutesUsed, remaining }
+  } catch (err) { handleFirestoreError(err, 'getUserMinutes') }
+}

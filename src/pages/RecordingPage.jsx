@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getRecording, friendlyFileType, deleteRecording } from '../services/storageService'
-import { getRecordingMeta, deleteRecordingMeta } from '../services/firestoreService'
+import { getRecordingMeta, deleteRecordingMeta, getUserMinutes } from '../services/firestoreService'
 import { useAuth } from '../context/AuthContext'
 
 function formatDuration(secs) {
@@ -29,11 +29,15 @@ export default function RecordingPage() {
   const [recording, setRecording] = useState(null)
   const [meta, setMeta] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [minutesRemaining, setMinutesRemaining] = useState(null)
 
   useEffect(() => {
     if (!id) return
     getRecording(id).then(rec => setRecording(rec))
-    if (user) getRecordingMeta(user.uid, id).then(m => setMeta(m))
+    if (user) {
+      getRecordingMeta(user.uid, id).then(m => setMeta(m))
+      getUserMinutes(user.uid).then(m => setMinutesRemaining(m.remaining))
+    }
   }, [id, user])
 
   const analysis = recording?.analysis || meta?.analysis || null
@@ -231,12 +235,26 @@ export default function RecordingPage() {
 
         {/* Action buttons */}
         <div className="flex flex-col gap-3 mt-auto pt-2">
-          <button
-            onClick={() => id && navigate(`/progress/${id}`)}
-            className="w-full py-3.5 rounded-2xl font-semibold text-sm text-white transition-all"
-            style={{ background: analysis ? 'transparent' : 'linear-gradient(135deg,#6C63FF,#4F8AFF)', border: analysis ? '2px solid #6C63FF' : 'none', color: analysis ? '#6C63FF' : 'white', boxShadow: analysis ? 'none' : '0 6px 24px rgba(108,99,255,0.4)' }}>
-            {analysis ? 'Re-Analyze' : 'Get Started →'}
-          </button>
+          {minutesRemaining === 0 ? (
+            <div className="flex flex-col gap-2">
+              <div className="w-full py-3.5 rounded-2xl text-center text-sm font-semibold"
+                style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                0 minutes remaining
+              </div>
+              <button onClick={() => navigate('/billing')}
+                className="w-full py-3.5 rounded-2xl font-semibold text-sm text-white"
+                style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
+                Top Up Minutes →
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => id && navigate(`/progress/${id}`)}
+              className="w-full py-3.5 rounded-2xl font-semibold text-sm text-white transition-all"
+              style={{ background: analysis ? 'transparent' : 'linear-gradient(135deg,#6C63FF,#4F8AFF)', border: analysis ? '2px solid #6C63FF' : 'none', color: analysis ? '#6C63FF' : 'white', boxShadow: analysis ? 'none' : '0 6px 24px rgba(108,99,255,0.4)' }}>
+              {analysis ? 'Re-Analyze' : 'Get Started →'}
+            </button>
+          )}
 
           {analysis && (
             <button

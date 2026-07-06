@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { getRecording, updateRecording } from '../services/storageService'
 import { transcribeWithWhisper, analyzeRecording } from '../services/analysisService'
 import { checkMinutesBeforeAnalysis } from '../services/billingService'
+import { getUserMinutes } from '../services/firestoreService'
 
 function delay(ms) {
   return new Promise(r => setTimeout(r, ms))
@@ -16,7 +17,7 @@ export function useAnalysis() {
   const [isComplete, setIsComplete] = useState(false)
   const [insufficientMinutes, setInsufficientMinutes] = useState(false)
 
-  const runAnalysis = useCallback(async (recordingId) => {
+  const runAnalysis = useCallback(async (recordingId, userId) => {
     try {
       setProgress(0)
       setStepIndex(0)
@@ -28,9 +29,23 @@ export function useAnalysis() {
       const recording = await getRecording(recordingId)
       if (!recording) throw new Error('Recording not found in local storage. Please re-import the file.')
 
-      // Gate: reserve minutes before calling OpenAI
       const durationSec = recording.duration || 60
       const estimatedMinutes = Math.max(1, Math.ceil(durationSec / 60))
+
+      // Hard frontend gate — read Firestore directly before touching OpenAI
+      if (userId) {
+        const { remaining } = await getUserMinutes(userId)
+        if (remaining <= 0) {
+          setInsufficientMinutes(true)
+          return
+        }
+        if (remaining < estimatedMinutes) {
+          setInsufficientMinutes(true)
+          return
+        }
+      }
+
+      // Secondary gate — Cloud Function deducts and rejects if exhausted
       const minutesCheck = await checkMinutesBeforeAnalysis(estimatedMinutes)
       if (!minutesCheck.ok) {
         setInsufficientMinutes(true)

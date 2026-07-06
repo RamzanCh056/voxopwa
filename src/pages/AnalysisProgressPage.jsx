@@ -48,8 +48,8 @@ export default function AnalysisProgressPage() {
   const { progress, stepIndex, currentStep, error, isComplete, result, insufficientMinutes, runAnalysis } = useAnalysis()
 
   useEffect(() => {
-    if (id) runAnalysis(id)
-  }, [id, runAnalysis])
+    if (id && user) runAnalysis(id, user.uid)
+  }, [id, user, runAnalysis])
 
   useEffect(() => {
     if (isComplete && result && user && id) {
