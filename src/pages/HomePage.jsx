@@ -296,12 +296,6 @@ export default function HomePage() {
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>/ {recordings.length}</span>
             </div>
           </div>
-          {/* AI badge chip */}
-          <div className="rounded-2xl px-3.5 py-2.5 flex flex-col justify-between"
-            style={{ background: 'linear-gradient(135deg,rgba(108,99,255,0.35),rgba(79,138,255,0.25))', border: '1px solid rgba(108,99,255,0.3)' }}>
-            <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(167,139,250,0.8)' }}>AI</p>
-            <span className="text-xl">✨</span>
-          </div>
         </div>
 
         {/* Bottom curved mask */}

@@ -201,7 +201,7 @@ export default function BillingPage() {
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       {showThankYou && <ThankYouDialog userData={userData} onClose={() => setShowThankYou(false)} />}
 
-      <div className="max-w-xl mx-auto space-y-5">
+      <div className="max-w-3xl mx-auto space-y-5">
 
         {/* ── Header ── */}
         <div>
@@ -284,7 +284,7 @@ export default function BillingPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {Object.entries(PLAN_META).map(([planId, meta]) => (
               <PlanCard
                 key={planId}
