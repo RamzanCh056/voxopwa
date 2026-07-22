@@ -30,30 +30,77 @@ function InviteModal({ teamId, onClose, darkMode }) {
   async function copy() {
     try { await navigator.clipboard.writeText(link) } catch {}
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  function shareWhatsApp() {
+    window.open(`https://wa.me/?text=${encodeURIComponent(`Join my team on Voxofied AI! ${link}`)}`, '_blank')
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
-      onClick={onClose}>
-      <div className="w-full max-w-sm bg-white dark:bg-[#1E1B4B] rounded-t-3xl md:rounded-3xl p-6 pb-8 md:pb-6"
-        style={{ animation: 'sheet-up 0.35s cubic-bezier(0.34,1.2,0.64,1) both' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-600 mx-auto mb-5 md:hidden" />
-        <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-1">Invite team member</h2>
-        <p className="text-sm text-gray-400 mb-4">Anyone with this link can join your team</p>
-        <div className="px-3 py-3 rounded-xl mb-4"
-          style={{ background: darkMode ? 'rgba(255,255,255,0.05)' : '#F8F9FF', border: '1px solid rgba(108,99,255,0.2)' }}>
-          <p className="text-xs text-gray-600 dark:text-gray-300 truncate font-mono">{link}</p>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 480,
+          background: darkMode ? '#1E1B4B' : '#fff',
+          borderRadius: '24px 24px 0 0',
+          padding: '20px 20px 72px 20px', /* 72px clears BottomNav */
+          animation: 'sheet-up 0.32s cubic-bezier(0.34,1.2,0.64,1) both',
+        }}>
+        {/* Drag handle */}
+        <div style={{ width: 40, height: 4, borderRadius: 9999, background: darkMode ? 'rgba(255,255,255,0.15)' : '#E5E7EB', margin: '0 auto 20px' }} />
+
+        <h2 style={{ fontSize: 17, fontWeight: 700, color: darkMode ? '#fff' : '#1F2937', marginBottom: 4 }}>
+          Invite team member
+        </h2>
+        <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 16 }}>
+          Anyone with this link can join your team
+        </p>
+
+        {/* Link row */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+          <input
+            readOnly
+            value={link}
+            style={{
+              flex: 1, fontSize: 11, padding: '10px 12px',
+              borderRadius: 10, border: `1px solid ${darkMode ? 'rgba(108,99,255,0.3)' : '#E5E7EB'}`,
+              background: darkMode ? 'rgba(108,99,255,0.08)' : '#F5F3FF',
+              color: darkMode ? '#C4B5FD' : '#4B5563', fontFamily: 'monospace',
+              outline: 'none', minWidth: 0,
+            }}
+          />
+          <button
+            onClick={copy}
+            style={{
+              background: copied ? '#22C55E' : '#6C63FF', color: '#fff',
+              border: 'none', borderRadius: 10, padding: '10px 14px',
+              fontSize: 12, fontWeight: 700, flexShrink: 0, cursor: 'pointer',
+              transition: 'background 0.2s',
+            }}>
+            {copied ? '✓ Copied' : 'Copy'}
+          </button>
         </div>
-        <button onClick={copy}
-          className="w-full py-3 rounded-xl font-semibold text-sm transition-all text-white"
-          style={{ background: copied ? '#22C55E' : '#6C63FF' }}>
-          {copied ? '✓ Copied!' : 'Copy invite link'}
+
+        {/* WhatsApp */}
+        <button
+          onClick={shareWhatsApp}
+          style={{
+            width: '100%', background: '#25D366', color: '#fff',
+            border: 'none', borderRadius: 12, padding: '13px',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          }}>
+          📱 Share via WhatsApp
         </button>
       </div>
-      <style>{`@keyframes sheet-up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}`}</style>
+      <style>{`@keyframes sheet-up{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
     </div>
   )
 }
@@ -300,7 +347,7 @@ export default function TeamsPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {members.map((m, i) => (
               <div key={m.uid || i} className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center gap-2.5 mb-3">
@@ -309,7 +356,8 @@ export default function TeamsPage() {
                     {initials(m.name)}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-gray-800 dark:text-white truncate">
+                    <p className="text-sm font-bold text-gray-800 dark:text-white truncate"
+                      title={m.isCurrentUser ? `${m.name} (you)` : m.name}>
                       {m.isCurrentUser ? `${m.name} (you)` : m.name}
                     </p>
                     <p className="text-xs text-gray-400">{m.role}</p>
