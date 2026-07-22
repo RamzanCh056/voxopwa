@@ -29,6 +29,7 @@ import BulkProgressPage from './pages/BulkProgressPage'
 import LanguagePage from './pages/LanguagePage'
 import TeamsPage from './pages/TeamsPage'
 import TeamReportPage from './pages/TeamReportPage'
+import JoinTeamPage from './pages/JoinTeamPage'
 
 const AUTH_ONLY_PATHS = ['/login', '/signup']
 
@@ -65,6 +66,7 @@ function AppShell() {
         <Route path="/bulk-import"         element={<ProtectedRoute><BulkImportPage /></ProtectedRoute>} />
         <Route path="/bulk-progress"       element={<ProtectedRoute><BulkProgressPage /></ProtectedRoute>} />
         <Route path="/team-report"         element={<ProtectedRoute><TeamReportPage /></ProtectedRoute>} />
+        <Route path="/join"               element={<JoinTeamPage />} />
 
         {/* Protected main app — sidebar on desktop, BottomNav on mobile */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
