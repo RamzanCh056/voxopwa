@@ -116,6 +116,11 @@ export default function ReportsPage() {
             className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none border"
             style={{ background: '#F8F9FF', borderColor: '#E5E7EB', color: '#1F2937' }} />
         </div>
+        <button onClick={() => navigate('/bulk-import')}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
+          ⚡ Bulk Import
+        </button>
       </div>
 
       <div className="px-4 pt-4 pb-8 md:px-8 flex flex-col gap-4 md:max-w-5xl md:w-full md:mx-auto">

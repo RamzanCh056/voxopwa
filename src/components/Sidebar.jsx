@@ -28,6 +28,17 @@ const NAV = [
     ),
   },
   {
+    to: '/bulk-import', end: false, label: 'Bulk Import',
+    icon: (a) => (
+      <svg viewBox="0 0 24 24" fill="none" stroke={a ? '#6C63FF' : 'currentColor'}
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0">
+        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+        <polyline points="13 2 13 9 20 9"/>
+        <line x1="12" y1="13" x2="12" y2="17"/><line x1="10" y1="15" x2="14" y2="15"/>
+      </svg>
+    ),
+  },
+  {
     to: '/checkin', end: false, label: 'Live Coach',
     icon: (a) => (
       <svg viewBox="0 0 24 24" fill="none" stroke={a ? '#6C63FF' : 'currentColor'}
@@ -47,6 +58,17 @@ const NAV = [
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
+    to: '/teams', end: false, label: 'My Team',
+    icon: (a) => (
+      <svg viewBox="0 0 24 24" fill="none" stroke={a ? '#6C63FF' : 'currentColor'}
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 flex-shrink-0">
+        <rect x="2" y="7" width="20" height="14" rx="2"/>
+        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+        <line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
       </svg>
     ),
   },

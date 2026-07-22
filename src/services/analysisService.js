@@ -44,9 +44,10 @@ export async function transcribeWithWhisper(audioBlob, filename = 'audio.webm') 
   }
 }
 
-export async function analyzeRecording(audioBlob, whisperResult, recordingId) {
+export async function analyzeRecording(audioBlob, whisperResult, recordingId, recordingType = 'general') {
   const transcription = whisperResult?.text || ''
   const segments = whisperResult?.segments || []
+  const language = localStorage.getItem('voxofied_language') || 'English'
 
   if (!transcription) {
     throw new Error(
@@ -78,9 +79,22 @@ export async function analyzeRecording(audioBlob, whisperResult, recordingId) {
       ? `Use EXACTLY these real timestamps from the transcript for moodTimeline (do NOT invent different times):\n${timelineChunks.map(c => `  { "time": "${c.time}", "snippet": "${c.snippet}" }`).join('\n')}\nAssign mood and intensity for each.`
       : `Create 6 moodTimeline entries with plausible timestamps spread across the recording.`
 
+  const salesExtra = recordingType === 'sales' ? `
+- Also include "salesAnalysis": {
+    "overallScore": 0-100,
+    "buyingSignals": [{ "timestamp": "M:SS", "signal": "short label", "quote": "exact words", "type": "positive|neutral|negative" }],
+    "objections": [{ "timestamp": "M:SS", "description": "objection description" }],
+    "rapportScore": 0-100,
+    "rapportLabel": "Low|Medium|High",
+    "confidenceScore": 0-100,
+    "aiTip": "One actionable tip to improve this call"
+  }` : ''
+
   const prompt = `You are an expert communication coach and AI speech analyst. Analyze this voice recording transcript and return a JSON coaching report.
 
 IMPORTANT: Base ALL observations strictly on the words spoken. Do NOT make claims about voice pitch, vocal patterns, tremors, breathing, or any acoustic properties — you only have text.
+${language !== 'English' ? `LANGUAGE: Respond with all mood labels, insights and recommendations in ${language}. Keep all JSON keys in English.` : ''}
+Recording type: ${recordingType}
 
 Rules:
 - emotions values MUST sum to 100
@@ -93,6 +107,7 @@ Rules:
 - improvements: exactly 2 areas where communication could be stronger
 - suggestedResponses: exactly 2 alternative phrases or techniques the speaker could use next time
 - aiCoachSummary: 2-3 sentences of honest, specific coaching feedback
+${salesExtra}
 
 Return ONLY valid JSON:
 {

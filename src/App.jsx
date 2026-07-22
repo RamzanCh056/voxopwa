@@ -24,6 +24,11 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import BillingPage from './pages/BillingPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
+import BulkImportPage from './pages/BulkImportPage'
+import BulkProgressPage from './pages/BulkProgressPage'
+import LanguagePage from './pages/LanguagePage'
+import TeamsPage from './pages/TeamsPage'
+import TeamReportPage from './pages/TeamReportPage'
 
 const AUTH_ONLY_PATHS = ['/login', '/signup']
 
@@ -57,6 +62,9 @@ function AppShell() {
         <Route path="/export/:id"          element={<ProtectedRoute><ExportReportPage /></ProtectedRoute>} />
         <Route path="/voice-auth/:id"      element={<ProtectedRoute><VoiceAuthenticityPage /></ProtectedRoute>} />
         <Route path="/coach-report"        element={<ProtectedRoute><LiveCoachReportPage /></ProtectedRoute>} />
+        <Route path="/bulk-import"         element={<ProtectedRoute><BulkImportPage /></ProtectedRoute>} />
+        <Route path="/bulk-progress"       element={<ProtectedRoute><BulkProgressPage /></ProtectedRoute>} />
+        <Route path="/team-report"         element={<ProtectedRoute><TeamReportPage /></ProtectedRoute>} />
 
         {/* Protected main app — sidebar on desktop, BottomNav on mobile */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -67,6 +75,8 @@ function AppShell() {
           <Route path="/people"                element={<PeoplePage />} />
           <Route path="/settings"              element={<SettingsPage />} />
           <Route path="/billing"               element={<BillingPage />} />
+          <Route path="/language"              element={<LanguagePage />} />
+          <Route path="/teams"                 element={<TeamsPage />} />
           <Route path="/admin"                 element={<AdminDashboardPage />} />
         </Route>
       </Routes>

@@ -242,6 +242,10 @@ export default function SettingsPage() {
                 <LinkRow label="Billing & Plans" />
               </button>
               <Divider />
+              <button onClick={() => navigate('/language')} className="w-full">
+                <LinkRow label="Language" right={localStorage.getItem('voxofied_language') || 'English'} />
+              </button>
+              <Divider />
               <LinkRow label="Privacy Policy" />
               <Divider />
               <LinkRow label="Terms of Service" />

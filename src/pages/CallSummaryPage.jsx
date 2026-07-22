@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getRecordingMeta } from '../services/firestoreService'
+import ShareMoodCard from '../components/ShareMoodCard'
 
 function tsToDate(ts) {
   if (!ts) return null
@@ -52,6 +53,7 @@ export default function CallSummaryPage() {
   const { user } = useAuth()
   const [recording, setRecording] = useState(null)
   const [analysis, setAnalysis] = useState(null)
+  const [showShare, setShowShare] = useState(false)
 
   useEffect(() => {
     if (id && user) {
@@ -242,6 +244,11 @@ export default function CallSummaryPage() {
             <h1 className="text-lg font-bold text-white">Call Summary</h1>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setShowShare(true)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)' }}>
+              Share
+            </button>
             <button onClick={exportPDF}
               className="px-3 py-1.5 rounded-full text-xs font-semibold"
               style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)' }}>
@@ -268,6 +275,10 @@ export default function CallSummaryPage() {
           <h1 className="text-xl font-bold text-gray-800 dark:text-white">Call Summary</h1>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowShare(true)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 dark:border-[#2E2B5B] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2E2B5B] transition-colors">
+            Share
+          </button>
           <button onClick={exportPDF}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 dark:border-[#2E2B5B] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2E2B5B] transition-colors">
             Export PDF
@@ -619,6 +630,80 @@ export default function CallSummaryPage() {
           </>
         )}
       </div>
+
+      {/* Sales Analysis sections */}
+      {analysis?.salesAnalysis && (
+        <div className="px-4 pb-6 md:px-8 flex flex-col gap-4 md:max-w-4xl md:w-full md:mx-auto">
+          <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-5 shadow-sm">
+            <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Sales Score</p>
+            <div className="flex items-center gap-4">
+              <span className="text-4xl font-black" style={{ color: '#6C63FF' }}>{analysis.salesAnalysis.overallScore}</span>
+              <span className="text-sm text-gray-400">/100</span>
+              <div className="flex-1 h-2.5 rounded-full overflow-hidden bg-gray-100 dark:bg-[#2E2B5B]">
+                <div className="h-full rounded-full" style={{ width: `${analysis.salesAnalysis.overallScore}%`, background: 'linear-gradient(90deg,#6C63FF,#4F8AFF)' }} />
+              </div>
+            </div>
+          </div>
+          {analysis.salesAnalysis.buyingSignals?.length > 0 && (
+            <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-5 shadow-sm">
+              <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Buying Signals</p>
+              <div className="flex flex-col gap-2.5">
+                {analysis.salesAnalysis.buyingSignals.map((s, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: s.type === 'positive' ? '#22C55E' : s.type === 'negative' ? '#EF4444' : '#F59E0B' }} />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-800 dark:text-white">{s.signal}</span>
+                        <span className="text-[10px] text-gray-400">{s.timestamp}</span>
+                      </div>
+                      {s.quote && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">"{s.quote}"</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {analysis.salesAnalysis.objections?.length > 0 && (
+            <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-5 shadow-sm">
+              <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Objections</p>
+              <div className="flex flex-col gap-2">
+                {analysis.salesAnalysis.objections.map((o, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 bg-red-400" />
+                    <div>
+                      <span className="text-xs font-semibold text-gray-800 dark:text-white">{o.description}</span>
+                      <span className="text-[10px] text-gray-400 ml-2">{o.timestamp}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {analysis.salesAnalysis.rapportScore !== undefined && (
+            <div className="bg-white dark:bg-[#1E1B4B] rounded-2xl p-5 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Rapport</p>
+                <p className="text-2xl font-black" style={{ color: '#6C63FF' }}>{analysis.salesAnalysis.rapportScore}<span className="text-sm font-normal text-gray-400 ml-1">/100</span></p>
+              </div>
+              <span className="px-3 py-1.5 rounded-full text-xs font-bold"
+                style={{ background: analysis.salesAnalysis.rapportLabel === 'High' ? 'rgba(34,197,94,0.1)' : analysis.salesAnalysis.rapportLabel === 'Medium' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', color: analysis.salesAnalysis.rapportLabel === 'High' ? '#16A34A' : analysis.salesAnalysis.rapportLabel === 'Medium' ? '#D97706' : '#DC2626' }}>
+                {analysis.salesAnalysis.rapportLabel}
+              </span>
+            </div>
+          )}
+          {analysis.salesAnalysis.aiTip && (
+            <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl">✨</span>
+                <p className="text-xs font-bold text-white uppercase tracking-wider opacity-80">AI Sales Tip</p>
+              </div>
+              <p className="text-white font-semibold text-sm leading-relaxed">{analysis.salesAnalysis.aiTip}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showShare && <ShareMoodCard analysis={analysis} onClose={() => setShowShare(false)} />}
     </div>
   )
 }

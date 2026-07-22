@@ -30,12 +30,16 @@ export default function RecordingPage() {
   const [meta, setMeta] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [minutesRemaining, setMinutesRemaining] = useState(null)
+  const [recordingType, setRecordingType] = useState('general')
 
   useEffect(() => {
     if (!id) return
     getRecording(id).then(rec => setRecording(rec))
     if (user) {
-      getRecordingMeta(user.uid, id).then(m => setMeta(m))
+      getRecordingMeta(user.uid, id).then(m => {
+        setMeta(m)
+        if (m?.recordingType) setRecordingType(m.recordingType)
+      })
       getUserMinutes(user.uid).then(m => setMinutesRemaining(m.remaining))
     }
   }, [id, user])
@@ -233,6 +237,24 @@ export default function RecordingPage() {
           </>
         )}
 
+        {/* Recording type selector */}
+        {!analysis && (
+          <div>
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-1">Recording Type</p>
+            <div className="flex gap-2 flex-wrap">
+              {['general', 'sales', 'interview', 'meeting'].map(t => (
+                <button key={t} onClick={() => setRecordingType(t)}
+                  className="px-3 py-1.5 rounded-full text-xs font-bold capitalize transition-all"
+                  style={recordingType === t
+                    ? { background: '#6C63FF', color: '#fff' }
+                    : { background: 'rgba(108,99,255,0.08)', color: '#6C63FF', border: '1px solid rgba(108,99,255,0.2)' }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="flex flex-col gap-3 mt-auto pt-2">
           {minutesRemaining === 0 ? (
@@ -249,7 +271,7 @@ export default function RecordingPage() {
             </div>
           ) : (
             <button
-              onClick={() => id && navigate(`/progress/${id}`)}
+              onClick={() => id && navigate(`/progress/${id}`, { state: { recordingType } })}
               className="w-full py-3.5 rounded-2xl font-semibold text-sm text-white transition-all"
               style={{ background: analysis ? 'transparent' : 'linear-gradient(135deg,#6C63FF,#4F8AFF)', border: analysis ? '2px solid #6C63FF' : 'none', color: analysis ? '#6C63FF' : 'white', boxShadow: analysis ? 'none' : '0 6px 24px rgba(108,99,255,0.4)' }}>
               {analysis ? 'Re-Analyze' : 'Get Started →'}
