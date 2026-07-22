@@ -458,14 +458,19 @@ export default function HomePage() {
               {recordings.length === 0 ? 'No files yet' : `${recordings.length} file${recordings.length !== 1 ? 's' : ''} · ${analyzedCount} analyzed`}
             </p>
           </div>
-          {recordings.length > 0 && (
-            <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/bulk-import')}
+              className="text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{ color: '#6C63FF', background: 'rgba(108,99,255,0.1)' }}>
+              Bulk import →
+            </button>
+            {recordings.length > 0 && (
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white"
                 style={{ background: 'linear-gradient(135deg,#6C63FF,#4F8AFF)' }}>
                 {recordings.length}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Empty state */}

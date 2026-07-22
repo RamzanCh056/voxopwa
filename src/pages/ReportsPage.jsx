@@ -82,6 +82,11 @@ export default function ReportsPage() {
               {recordings.length} recordings
             </p>
           </div>
+          <button onClick={() => navigate('/bulk-import')}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg,#6C63FF,#8B85FF)', color: '#fff', boxShadow: '0 3px 10px rgba(108,99,255,0.35)' }}>
+            📂 Bulk Import
+          </button>
         </div>
         <div className="relative">
           <svg viewBox="0 0 24 24" fill="none"
@@ -141,7 +146,21 @@ export default function ReportsPage() {
 
         <div className="flex flex-col gap-3 md:grid md:grid-cols-2">
           {filtered.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8 md:col-span-2">No recordings found</p>
+            <div className="md:col-span-2 flex flex-col items-center gap-3 py-6">
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center">No recordings found</p>
+              {filter === 'All' && search === '' && (
+                <button onClick={() => navigate('/bulk-import')}
+                  className="w-full max-w-sm flex flex-col items-center gap-2 py-6 px-5 rounded-2xl cursor-pointer transition-all active:scale-[0.98]"
+                  style={{
+                    background: darkMode ? 'rgba(108,99,255,0.08)' : '#F5F3FF',
+                    border: `2px dashed ${darkMode ? 'rgba(108,99,255,0.3)' : '#C4B5FD'}`,
+                  }}>
+                  <span className="text-3xl">📂</span>
+                  <p className="text-sm font-bold text-purple-600 dark:text-purple-400">Bulk Import Voice Notes</p>
+                  <p className="text-xs text-purple-400 dark:text-purple-500">Analyze multiple .opus / .mp3 files at once</p>
+                </button>
+              )}
+            </div>
           ) : filtered.map(rec => {
             const mood = rec.analysis?.primaryMood
             const ms = moodStyle(mood)
